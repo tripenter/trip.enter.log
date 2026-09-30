@@ -23,17 +23,33 @@ def workspace_root() -> Path:
     return here.parents[4]
 
 
-def load_config(config_path: Path) -> dict:
+def load_config(config_path: Path, *, debug: bool = True) -> dict:
     with config_path.open(encoding="utf-8") as f:
         cfg = json.load(f)
-    db = cfg.get("database")
-    if not isinstance(db, dict):
-        raise SystemExit(f"config에 database 섹션이 없습니다: {config_path}")
+
+    entries = cfg.get("databases")
+    if not isinstance(entries, list) or not entries:
+        legacy = cfg.get("database")
+        if isinstance(legacy, dict):
+            entries = [legacy]
+        else:
+            raise SystemExit(f"config에 databases 섹션이 없습니다: {config_path}")
+
+    selected = None
+    for item in entries:
+        if not isinstance(item, dict):
+            continue
+        if bool(item.get("debug", False)) == debug:
+            selected = item
+            break
+    if selected is None:
+        raise SystemExit(f"debug={debug} 인 데이터베이스 설정을 찾을 수 없습니다: {config_path}")
+
     required = ("host", "port", "user", "password", "name")
-    missing = [k for k in required if k not in db]
+    missing = [k for k in required if k not in selected]
     if missing:
         raise SystemExit(f"database 설정 누락: {', '.join(missing)}")
-    return db
+    return selected
 
 
 def is_result_query(sql: str) -> bool:
@@ -97,6 +113,19 @@ def main() -> int:
         default=str(workspace_root() / "go" / "dev_secret" / "config.json"),
         help="Path to config.json (default: go/dev_secret/config.json)",
     )
+    parser.add_argument(
+        "--debug",
+        dest="debug",
+        action="store_true",
+        default=True,
+        help="Use databases[].debug=true (default for Cursor)",
+    )
+    parser.add_argument(
+        "--prod",
+        dest="debug",
+        action="store_false",
+        help="Use databases[].debug=false",
+    )
     parser.add_argument("sql", nargs="?", help="SQL statement (or pass via stdin)")
     args = parser.parse_args()
 
@@ -112,7 +141,7 @@ def main() -> int:
         print(f"설정 파일이 없습니다: {config_path}", file=sys.stderr)
         return 2
 
-    db = load_config(config_path)
+    db = load_config(config_path, debug=args.debug)
     want_table = is_result_query(sql)
     result = run_mysql(db, sql, batch=want_table)
 

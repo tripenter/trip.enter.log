@@ -11,14 +11,14 @@ import (
 )
 
 func main() {
-	// 설정 파일 로드 (DB 비밀번호는 dev_secret/config.json에 원문으로 저장)
+	// 설정 파일 로드 (APP_DEBUG 미설정/true → debug DB, APP_DEBUG=false → 배포 DB)
 	cfg, err := config.LoadConfig("dev_secret/config.json")
 	if err != nil {
 		log.Fatalf("설정 파일 로드 실패: %v", err)
 	}
 
-	log.Printf("DB 설정 로드 완료 - 호스트: %s, 계정: %s, DB명: %s",
-		cfg.Database.Host, cfg.Database.User, cfg.Database.Name)
+	log.Printf("DB 설정 로드 완료 - debug=%v, 호스트: %s, 계정: %s, DB명: %s",
+		cfg.Database.Debug, cfg.Database.Host, cfg.Database.User, cfg.Database.Name)
 
 	r := gin.Default()
 
