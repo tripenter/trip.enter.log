@@ -1,0 +1,8 @@
+{
+    "go.alternateTools": {
+        "dlv": "/Users/gimtaeyun/go/bin/dlv"
+    },
+    "go.delveConfig": {
+        "dlvFlags": ["--check-go-version=false"]
+    }
+}

@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"tripREST/config"
+	"tripREST/controller"
 
 	"github.com/gin-gonic/gin"
 )
@@ -20,6 +21,13 @@ func main() {
 	log.Printf("DB 설정 로드 완료 - debug=%v, 호스트: %s, 계정: %s, DB명: %s",
 		cfg.Database.Debug, cfg.Database.Host, cfg.Database.User, cfg.Database.Name)
 
+	db, err := config.ConnectDB(cfg)
+	if err != nil {
+		log.Fatalf("데이터베이스 연결 실패: %v", err)
+	}
+	defer db.Close()
+	controller.SetDB(db)
+
 	r := gin.Default()
 
 	r.GET("/rest/ping", func(c *gin.Context) {
@@ -30,6 +38,8 @@ func main() {
 		})
 	})
 
+	r.POST("/rest/get/menu", controller.GetMenu)
+
 	// dev_secret/config.json의 server.port (기본값 10000) 설정 적용
 	port := cfg.Server.Port
 	if port == 0 {
@@ -38,5 +48,7 @@ func main() {
 	serverAddr := fmt.Sprintf(":%d", port)
 
 	log.Printf("Gin 서버를 %s 포트에서 시작합니다.", serverAddr)
-	r.Run(serverAddr)
+	if err := r.Run(serverAddr); err != nil {
+		log.Fatalf("서버 시작 실패: %v", err)
+	}
 }

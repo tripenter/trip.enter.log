@@ -60,6 +60,14 @@ body {
   gap: 0.25rem;
 }
 
+.nav-dynamic {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
 .nav-brand {
   color: var(--ink);
   text-decoration: none;

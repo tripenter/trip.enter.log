@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Go Server",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/go",
+            "cwd": "${workspaceFolder}/go",
+            "env": {
+                "APP_DEBUG": "true"
+            },
+            "dlvFlags": ["--check-go-version=false"]
+        }
+    ]
+}
