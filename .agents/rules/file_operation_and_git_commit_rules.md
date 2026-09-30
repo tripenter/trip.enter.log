@@ -27,5 +27,5 @@
 - All REST API endpoints and routes MUST start with the `/rest` prefix (e.g. `/rest/ping`, `/rest/users`, `/rest/v1/...`).
 
 ## 5. Git Push & Pull Execution Rules (CRITICAL)
-- When requested to `git push`, MUST execute `./dev_secret/git_push.sh`.
-- When requested to `git pull`, MUST execute `./dev_secret/git_pull.sh`.
+- When requested to `git push`, MUST execute `./go/dev_secret/git_push.sh`.
+- When requested to `git pull`, MUST execute `./go/dev_secret/git_pull.sh`.
