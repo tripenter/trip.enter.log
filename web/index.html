@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>트립엔터 — 세상의 모든 장소를 코드로 기록합니다</title>
+    <meta
+      name="description"
+      content="트립엔터는 여행과 캠핑, 코딩으로 장소를 기록합니다. trip+Enter, trip and place."
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ink: "#07110f",
+              pine: "#12352c",
+              ember: "#e39a4a",
+              mist: "#d7e6df",
+              code: "#7dcaa8",
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="./css/intro.css" />
+  </head>
+  <body>
+    <header class="site-nav" role="banner">
+      <nav class="nav-inner" aria-label="주메뉴">
+        <a class="nav-brand font-display" href="./index.html">트립엔터</a>
+
+        <div class="nav-item nav-link-desktop" data-nav-item>
+          <a class="nav-link" href="#meaning">브랜드</a>
+          <div class="nav-panel" role="region" aria-label="브랜드 하위메뉴">
+            <div class="nav-panel-inner">
+              <div>
+                <span class="panel-label">Name</span>
+                <a href="#meaning">이름의 두 의미</a>
+              </div>
+              <div>
+                <span class="panel-label">Promise</span>
+                <a href="#hero">캐치프레이즈</a>
+              </div>
+              <div>
+                <span class="panel-label">Soon</span>
+                <a href="#themes">채널 이야기</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="nav-item nav-link-desktop" data-nav-item>
+          <a class="nav-link" href="#themes">여정</a>
+          <div class="nav-panel" role="region" aria-label="여정 하위메뉴">
+            <div class="nav-panel-inner">
+              <div>
+                <span class="panel-label">Camp</span>
+                <a href="#themes">스텔스 차박</a>
+              </div>
+              <div>
+                <span class="panel-label">Stay</span>
+                <a href="#themes">호텔 숙박</a>
+              </div>
+              <div>
+                <span class="panel-label">Code</span>
+                <a href="#themes">장소의 기록</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="nav-item nav-link-desktop" data-nav-item>
+          <a class="nav-link" href="#themes">미디어</a>
+          <div class="nav-panel" role="region" aria-label="미디어 하위메뉴">
+            <div class="nav-panel-inner">
+              <div>
+                <span class="panel-label">Art</span>
+                <a href="#themes">감성 미디어 아트</a>
+              </div>
+              <div>
+                <span class="panel-label">Play</span>
+                <a href="#themes">지역 특색 프로그램</a>
+              </div>
+              <div>
+                <span class="panel-label">Tube</span>
+                <a href="#themes">유튜브 트립엔터</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section id="hero" class="hero" aria-label="트립엔터 소개">
+        <div class="hero-media" aria-hidden="true">
+          <div class="starfield" data-starfield></div>
+          <div class="campfire-glow"></div>
+        </div>
+
+        <div class="hero-content">
+          <h1 class="brand-mark font-display" data-hero-in>트립엔터</h1>
+          <p class="hero-catch font-display" data-hero-in>
+            세상의 모든 장소를 코드로 기록합니다
+          </p>
+          <p class="hero-support" data-hero-in>
+            캠핑의 밤과 여행의 길 위에서, 키보드 한 줄로 그 장소의 공기를 남깁니다.
+          </p>
+          <div class="hero-cta" data-hero-in>
+            <a class="btn-primary" href="#meaning">이름 풀어보기</a>
+            <a class="btn-ghost" href="#themes">테마 살펴보기</a>
+          </div>
+        </div>
+      </section>
+
+      <section id="meaning" class="section">
+        <div class="section-inner">
+          <p class="section-kicker font-mono">// brand.meaning</p>
+          <h2 class="section-title font-display">하나의 이름, 두 개의 길</h2>
+          <p class="section-copy">
+            트립엔터는 여행과 입력을 한곳에 겹쳐 둔 이름입니다. 길을 떠나며 만난 장소를,
+            엔터를 치듯 기록 속에 남깁니다.
+          </p>
+
+          <div class="meaning-grid">
+            <article class="meaning-block" data-reveal>
+              <h3 class="font-display">trip + Enter</h3>
+              <p>
+                여행(<strong>trip</strong>)과 엔터키(<strong>Enter</strong>).
+                새로운 장소에 발을 들이고, 그 순간의 감각을 코드처럼 확정합니다.
+              </p>
+            </article>
+            <article class="meaning-block" data-reveal>
+              <h3 class="font-display">trip and place(터)</h3>
+              <p>
+                여행(<strong>trip</strong>) 엔(<strong>and</strong>) 터(<strong>place</strong>).
+                길 위의 나와, 그곳이 품은 터를 함께 이야기합니다.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="themes" class="section" style="padding-top: 2rem">
+        <div class="section-inner">
+          <p class="section-kicker font-mono">// themes</p>
+          <h2 class="section-title font-display">캠핑 · 여행 · 코딩</h2>
+          <p class="section-copy">
+            반응형 감성 미디어 아트로, 여행지에서 있었던 일과 지역 특색에 맞는
+            프로그램·게임 같은 웹 경험을 만듭니다.
+          </p>
+
+          <div class="theme-row">
+            <article class="theme-item" data-reveal>
+              <span class="code-line font-mono">camp.stealth = 0.8</span>
+              <h3 class="font-display">캠핑</h3>
+              <p>
+                스텔스 차박의 낮은 불빛, 바람 소리, 별이 뜨는 시간.
+                조용한 밤을 화면 위에 펼칩니다.
+              </p>
+            </article>
+            <article class="theme-item" data-reveal>
+              <span class="code-line font-mono">travel.hotel = 0.2</span>
+              <h3 class="font-display">여행</h3>
+              <p>
+                호텔에 머무는 여정도, 길 위의 우연도.
+                장소의 표정을 짧게, 또렷하게 담습니다.
+              </p>
+            </article>
+            <article class="theme-item" data-reveal>
+              <span class="code-line font-mono">write.place()</span>
+              <h3 class="font-display">코딩</h3>
+              <p>
+                HTML과 인터랙션으로 장소를 기록합니다.
+                코드는 지도가 되고, 페이지는 여행 일지가 됩니다.
+              </p>
+            </article>
+          </div>
+
+          <p class="ratio-note">
+            여정의 비율은 호텔 숙박 20%, 스텔스 차박 80%를 기본으로 합니다.
+            곧 Apple 스타일 메뉴에 맞춰 각 장소·프로그램 페이지가
+            <span class="font-mono text-code">web/폴더명</span>으로 이어집니다.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p class="font-display text-mist/80">트립엔터</p>
+      <p class="mt-2">세상의 모든 장소를 코드로 기록합니다</p>
+    </footer>
+
+    <script src="./js/intro.js" defer></script>
+  </body>
+</html>
