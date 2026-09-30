@@ -4,15 +4,17 @@
   function spawnStars() {
     const field = document.querySelector("[data-starfield]");
     if (!field) return;
-    const count = window.innerWidth < 768 ? 36 : 64;
+    const count = window.innerWidth < 768 ? 18 : 28;
     const frag = document.createDocumentFragment();
     for (let i = 0; i < count; i += 1) {
       const star = document.createElement("span");
       star.className = "star";
-      star.style.left = `${Math.random() * 100}%`;
-      star.style.top = `${Math.random() * 70}%`;
-      star.style.setProperty("--dur", `${2.8 + Math.random() * 3.8}s`);
-      star.style.animationDelay = `${Math.random() * 4}s`;
+      star.style.left = `${8 + Math.random() * 84}%`;
+      star.style.top = `${8 + Math.random() * 55}%`;
+      star.style.width = `${6 + Math.random() * 10}px`;
+      star.style.height = star.style.width;
+      star.style.setProperty("--dur", `${4 + Math.random() * 4}s`);
+      star.style.animationDelay = `${Math.random() * 3}s`;
       frag.appendChild(star);
     }
     field.appendChild(frag);
