@@ -122,7 +122,13 @@ def build_create_sql(schema: dict[str, Any], *, if_not_exists: bool) -> str:
     return sql
 
 
-def mysql_cmd(db: dict[str, Any], sql: str, *, batch: bool = False) -> subprocess.CompletedProcess[str]:
+def mysql_cmd(
+    db: dict[str, Any],
+    sql: str,
+    *,
+    batch: bool = False,
+    raw: bool = False,
+) -> subprocess.CompletedProcess[str]:
     cmd = [
         "mysql",
         f"--host={db['host']}",
@@ -133,7 +139,9 @@ def mysql_cmd(db: dict[str, Any], sql: str, *, batch: bool = False) -> subproces
         db["name"],
     ]
     if batch:
-        cmd.extend(["--batch", "--raw"])
+        cmd.append("--batch")
+        if raw:
+            cmd.append("--raw")
     cmd.extend(["-e", sql])
     return subprocess.run(cmd, capture_output=True, text=True)
 
@@ -197,7 +205,7 @@ def pick_source_db(results: list[dict[str, Any]], databases: list[dict[str, Any]
 def fetch_structure_markdown(db: dict[str, Any], table: str) -> str:
     # Field, Type, Null, Key, Default, Extra, Comment
     sql = f"SHOW FULL COLUMNS FROM `{table}`;"
-    result = mysql_cmd(db, sql, batch=True)
+    result = mysql_cmd(db, sql, batch=True, raw=True)
     if result.returncode != 0:
         raise RuntimeError(clean_mysql_err(result.stderr) or "SHOW FULL COLUMNS 실패")
 
@@ -242,18 +250,19 @@ def fetch_structure_markdown(db: dict[str, Any], table: str) -> str:
 
 
 def fetch_show_create_table(db: dict[str, Any], table: str) -> str:
+    # Avoid --raw so newlines inside Create Table are escaped as \n in batch output.
     sql = f"SHOW CREATE TABLE `{table}`;"
-    result = mysql_cmd(db, sql, batch=True)
+    result = mysql_cmd(db, sql, batch=True, raw=False)
     if result.returncode != 0:
         raise RuntimeError(clean_mysql_err(result.stderr) or "SHOW CREATE TABLE 실패")
     lines = [ln for ln in (result.stdout or "").splitlines() if ln != ""]
     if len(lines) < 2:
         raise RuntimeError("SHOW CREATE TABLE 결과가 비어 있습니다")
-    # header + one data row: Table \t Create Table
     parts = lines[1].split("\t", 1)
     if len(parts) < 2:
         raise RuntimeError("SHOW CREATE TABLE 파싱 실패")
-    ddl = parts[1].replace("\\n", "\n")
+    ddl = parts[1]
+    ddl = ddl.replace("\\n", "\n").replace("\\t", "\t").replace("\\\\", "\\")
     if not ddl.rstrip().endswith(";"):
         ddl = ddl.rstrip() + ";"
     return ddl
