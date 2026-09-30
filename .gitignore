@@ -1,0 +1,9 @@
+dev_secret/
+server
+scratch/
+
+# Local paths
+go/dev_secret/
+server
+scratch/
+.DS_Store
