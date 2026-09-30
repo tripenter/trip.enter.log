@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Insert a WebMenu row using go/dev_secret/config.json (debug DB by default)."""
+"""Insert a WebMenu row into every database in go/dev_secret/config.json."""
 
 from __future__ import annotations
 
@@ -72,7 +72,7 @@ def scaffold_child_page(folder: str, title: str) -> Path:
     return page
 
 
-def load_config(config_path: Path, *, debug: bool = True) -> dict:
+def load_all_databases(config_path: Path) -> list[dict]:
     with config_path.open(encoding="utf-8") as f:
         cfg = json.load(f)
 
@@ -84,21 +84,29 @@ def load_config(config_path: Path, *, debug: bool = True) -> dict:
         else:
             raise SystemExit(f"config에 databases 섹션이 없습니다: {config_path}")
 
-    selected = None
+    required = ("host", "port", "user", "password", "name")
+    dbs: list[dict] = []
     for item in entries:
         if not isinstance(item, dict):
             continue
-        if bool(item.get("debug", False)) == debug:
-            selected = item
-            break
-    if selected is None:
-        raise SystemExit(f"debug={debug} 인 데이터베이스 설정을 찾을 수 없습니다: {config_path}")
+        missing = [k for k in required if k not in item]
+        if missing:
+            raise SystemExit(f"database 설정 누락: {', '.join(missing)}")
+        dbs.append(item)
+    if not dbs:
+        raise SystemExit(f"유효한 databases 항목이 없습니다: {config_path}")
+    return dbs
 
-    required = ("host", "port", "user", "password", "name")
-    missing = [k for k in required if k not in selected]
-    if missing:
-        raise SystemExit(f"database 설정 누락: {', '.join(missing)}")
-    return selected
+
+def db_label(db: dict) -> str:
+    return f"debug={bool(db.get('debug', False))} {db['host']}:{db['port']}/{db['name']}"
+
+
+def pick_primary(dbs: list[dict]) -> dict:
+    for db in dbs:
+        if bool(db.get("debug", False)):
+            return db
+    return dbs[0]
 
 
 def mysql_escape(value: str) -> str:
@@ -151,7 +159,7 @@ ORDER BY WM_SortOrder, WM_Id;
     result = run_mysql(db, sql)
     err = clean_err(result.stderr)
     if result.returncode != 0:
-        raise SystemExit(err or "형제 메뉴 조회 실패")
+        raise SystemExit(f"[{db_label(db)}] 형제 메뉴 조회 실패: {err or 'unknown'}")
 
     rows: list[tuple[int, int, str]] = []
     for line in (result.stdout or "").splitlines():
@@ -164,8 +172,67 @@ ORDER BY WM_SortOrder, WM_Id;
     return rows
 
 
+def build_insert_sql(
+    *,
+    parent_id: int | None,
+    title: str,
+    folder: str | None,
+    new_sort: int,
+    active: int,
+    wm_id: int | None,
+) -> str:
+    parent_sql = "NULL" if parent_id is None else str(int(parent_id))
+    if folder is None or folder == "":
+        folder_sql = "NULL"
+    else:
+        folder_sql = f"'{mysql_escape(folder)}'"
+    title_sql = f"'{mysql_escape(title)}'"
+
+    if wm_id is None:
+        insert = f"""
+INSERT INTO WebMenu (
+  WM_ParentId, WM_Title, WM_Folder, WM_SortOrder, WM_IsActive, WM_CreatedAt, WM_UpdatedAt
+) VALUES (
+  {parent_sql}, {title_sql}, {folder_sql}, {new_sort}, {int(active)}, NOW(), NOW()
+);
+SELECT LAST_INSERT_ID() AS WM_Id, {new_sort} AS WM_SortOrder;
+"""
+    else:
+        insert = f"""
+INSERT INTO WebMenu (
+  WM_Id, WM_ParentId, WM_Title, WM_Folder, WM_SortOrder, WM_IsActive, WM_CreatedAt, WM_UpdatedAt
+) VALUES (
+  {int(wm_id)}, {parent_sql}, {title_sql}, {folder_sql}, {new_sort}, {int(active)}, NOW(), NOW()
+);
+SELECT {int(wm_id)} AS WM_Id, {new_sort} AS WM_SortOrder;
+"""
+
+    return f"""
+START TRANSACTION;
+UPDATE WebMenu
+SET WM_SortOrder = WM_SortOrder + 1,
+    WM_UpdatedAt = NOW()
+WHERE {parent_clause(parent_id)}
+  AND WM_SortOrder >= {new_sort};
+{insert}
+COMMIT;
+"""
+
+
+def parse_insert_result(stdout: str, fallback_sort: int) -> tuple[str, str]:
+    lines = [ln for ln in (stdout or "").splitlines() if ln.strip()]
+    if not lines:
+        return "?", str(fallback_sort)
+    last = lines[-1].split("\t")
+    wm_id = last[0] if last else "?"
+    sort_order = last[1] if len(last) > 1 else str(fallback_sort)
+    return wm_id, sort_order
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Insert WebMenu row via project config.json")
+    parser = argparse.ArgumentParser(
+        description="Insert WebMenu row into every database in config.json"
+    )
     parser.add_argument(
         "--config",
         default=str(workspace_root() / "go" / "dev_secret" / "config.json"),
@@ -181,19 +248,6 @@ def main() -> int:
         help="Insert after this 1-based index among siblings (0 = first)",
     )
     parser.add_argument("--active", type=int, required=True, choices=(0, 1), help="WM_IsActive")
-    parser.add_argument(
-        "--debug",
-        dest="debug",
-        action="store_true",
-        default=True,
-        help="Use databases[].debug=true (default)",
-    )
-    parser.add_argument(
-        "--prod",
-        dest="debug",
-        action="store_false",
-        help="Use databases[].debug=false",
-    )
     args = parser.parse_args()
 
     if args.after < 0:
@@ -205,65 +259,64 @@ def main() -> int:
         print(f"설정 파일이 없습니다: {config_path}", file=sys.stderr)
         return 2
 
-    db = load_config(config_path, debug=args.debug)
-    siblings = fetch_siblings(db, args.parent_id)
+    dbs = load_all_databases(config_path)
+    primary = pick_primary(dbs)
+    siblings = fetch_siblings(primary, args.parent_id)
 
     if not siblings:
         new_sort = 1
     else:
         if args.after > len(siblings):
             print(
-                f"--after={args.after} 는 현재 형제 수({len(siblings)})를 넘을 수 없습니다.",
+                f"--after={args.after} 는 현재 형제 수({len(siblings)})를 넘을 수 없습니다 "
+                f"(기준 DB: {db_label(primary)}).",
                 file=sys.stderr,
             )
             return 2
         new_sort = args.after + 1
 
-    parent_sql = "NULL" if args.parent_id is None else str(int(args.parent_id))
-    if args.folder is None or args.folder == "":
-        folder_sql = "NULL"
-    else:
-        folder_sql = f"'{mysql_escape(args.folder)}'"
-    title_sql = f"'{mysql_escape(args.title)}'"
+    # Primary first (auto WM_Id), then others with the same WM_Id for consistency.
+    ordered = [primary] + [db for db in dbs if db is not primary]
+    shared_id: int | None = None
+    failures = 0
 
-    sql = f"""
-START TRANSACTION;
-UPDATE WebMenu
-SET WM_SortOrder = WM_SortOrder + 1,
-    WM_UpdatedAt = NOW()
-WHERE {parent_clause(args.parent_id)}
-  AND WM_SortOrder >= {new_sort};
-INSERT INTO WebMenu (
-  WM_ParentId, WM_Title, WM_Folder, WM_SortOrder, WM_IsActive, WM_CreatedAt, WM_UpdatedAt
-) VALUES (
-  {parent_sql}, {title_sql}, {folder_sql}, {new_sort}, {int(args.active)}, NOW(), NOW()
-);
-SELECT LAST_INSERT_ID() AS WM_Id, {new_sort} AS WM_SortOrder;
-COMMIT;
-"""
+    for index, db in enumerate(ordered):
+        sql = build_insert_sql(
+            parent_id=args.parent_id,
+            title=args.title,
+            folder=args.folder,
+            new_sort=new_sort,
+            active=args.active,
+            wm_id=None if index == 0 else shared_id,
+        )
+        result = run_mysql(db, sql, batch=True)
+        err = clean_err(result.stderr)
+        if result.returncode != 0:
+            print(f"FAIL [{db_label(db)}] {err or 'INSERT 실패'}", file=sys.stderr)
+            failures += 1
+            continue
 
-    result = run_mysql(db, sql, batch=True)
-    err = clean_err(result.stderr)
-    if result.returncode != 0:
-        print(err or "INSERT 실패", file=sys.stderr)
-        return result.returncode
+        wm_id, sort_order = parse_insert_result(result.stdout or "", new_sort)
+        if index == 0:
+            try:
+                shared_id = int(wm_id)
+            except ValueError:
+                print(
+                    f"FAIL [{db_label(db)}] LAST_INSERT_ID 파싱 실패: {wm_id!r}",
+                    file=sys.stderr,
+                )
+                return 1
+        print(
+            f"OK [{db_label(db)}] WM_Id={wm_id} WM_SortOrder={sort_order} "
+            f"WM_ParentId={args.parent_id if args.parent_id is not None else 'NULL'} "
+            f"WM_Title={args.title!r} WM_Folder={args.folder!r} WM_IsActive={args.active}"
+        )
 
-    lines = [ln for ln in (result.stdout or "").splitlines() if ln.strip()]
-    if not lines:
-        print("OK (inserted, but LAST_INSERT_ID not returned)")
-        return 0
+    if failures:
+        print(f"완료: 실패 {failures}/{len(ordered)}", file=sys.stderr)
+        return 1
 
-    # Last non-empty line should be: <id>\t<sort>
-    last = lines[-1].split("\t")
-    wm_id = last[0] if last else "?"
-    sort_order = last[1] if len(last) > 1 else str(new_sort)
-    print(
-        f"OK inserted WM_Id={wm_id} WM_SortOrder={sort_order} "
-        f"WM_ParentId={args.parent_id if args.parent_id is not None else 'NULL'} "
-        f"WM_Title={args.title!r} WM_Folder={args.folder!r} WM_IsActive={args.active}"
-    )
-
-    # 하위메뉴 + WM_Folder 있을 때 web/<folder>/index.html 생성
+    # 하위메뉴 + WM_Folder 있을 때 web/<folder>/index.html 생성 (1회)
     if args.parent_id is not None and args.folder:
         try:
             page = scaffold_child_page(args.folder, args.title)
