@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>영월 청령포: 단종을 만나다 — 트립엔터</title>
+    <meta
+      name="description"
+      content="서강이 삼면을 감싼 영월 청령포. 마우스를 움직여 해를 띄우고, 물결을 일으키고, 단종의 흔적을 찾는 인터랙티브 미디어 아트."
+    />
+    <link rel="stylesheet" href="../css/intro.css" />
+    <link rel="stylesheet" href="./cheongnyeongpo.css" />
+  </head>
+  <body>
+    <header class="site-nav" role="banner">
+      <nav class="nav-inner" aria-label="주메뉴">
+        <a class="nav-brand font-display" href="/index.html">트립엔터</a>
+        <div class="nav-dynamic" data-dynamic-menu aria-live="polite"></div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="stage" data-stage aria-label="영월 청령포 인터랙티브 미디어 아트">
+        <canvas class="sky-canvas" data-sky aria-hidden="true"></canvas>
+
+        <div class="scene" data-scene aria-hidden="true">
+          <picture>
+            <source srcset="../img/cheongnyeongpo.webp" type="image/webp" />
+            <img class="scene-art" src="../img/cheongnyeongpo.png" alt="" />
+          </picture>
+          <div class="scene-tint"></div>
+          <div class="scene-light"></div>
+        </div>
+
+        <canvas class="water-canvas" data-water aria-hidden="true"></canvas>
+
+        <div class="figure" data-figure aria-hidden="true">
+          <div class="figure-shadow"></div>
+          <img class="figure-art" src="../img/danjong.png" alt="" />
+          <div class="figure-tint"></div>
+          <div class="figure-rim"></div>
+        </div>
+
+        <canvas class="air-canvas" data-air aria-hidden="true"></canvas>
+
+        <div class="hotspots" data-hotspots></div>
+
+        <div class="stage-ui">
+          <div class="ui-top">
+            <div>
+              <p class="art-eyebrow font-mono">yeongwol · cheongnyeongpo</p>
+              <h1 class="art-title font-display">영월 청령포<br />단종을 만나다</h1>
+              <p class="art-lede">
+                서강이 동·남·북 삼면을 감싸 돌아 길이 끊긴 땅. 열일곱 어린 임금이
+                동쪽 하늘을 올려다보던 자리입니다.
+              </p>
+            </div>
+            <div class="sun-clock font-mono">
+              <span class="clock-time" data-clock-time>05:30</span>
+              <span class="clock-phase" data-clock-phase>동틀 무렵</span>
+              <span class="quest">
+                유적 <strong data-quest-count>0</strong> / <span data-quest-total>7</span>
+              </span>
+            </div>
+          </div>
+
+          <div class="ui-bottom">
+            <p class="art-hint" data-hint>마우스를 좌우로 움직여 해를 옮겨 보세요</p>
+          </div>
+
+          <span class="compass compass-e font-mono" aria-hidden="true">동</span>
+          <span class="compass compass-w font-mono" aria-hidden="true">서</span>
+        </div>
+
+        <div class="reward font-display" data-reward role="status" aria-live="polite">
+          <h2>일곱 자리를 모두 찾았습니다</h2>
+          <blockquote>
+            원통한 새 한 마리 궁궐을 떠나와<br />
+            짝 없는 외로운 그림자 푸른 산중에 깊었네
+          </blockquote>
+          <cite>단종이 영월에서 남겼다고 전해지는 「자규시」 풀이</cite>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-inner">
+          <p class="section-kicker font-mono">// place.cheongnyeongpo</p>
+          <h2 class="section-title font-display">길이 끊긴 땅, 청령포</h2>
+          <p class="section-copy">
+            강원특별자치도 영월군 남한강 상류에 있는 청령포는 서강이 동·남·북 삼면을
+            감싸 돌아, 배를 타지 않으면 들어갈 수 없는 땅입니다. 세조에게 왕위를 빼앗긴
+            단종이 유배된 곳으로, 단묘유지비와 노산대, 금표비, 돌탑처럼 단종의 시간이
+            남긴 흔적이 솔숲 곳곳에 서 있습니다. 한반도를 빼닮은 육륙봉 암벽과 어우러진
+            풍경은 2008년 국가지정 명승 제50호가 되었습니다.
+          </p>
+
+          <dl class="fact-grid">
+            <div class="fact-row">
+              <dt>주소</dt>
+              <dd>강원특별자치도 영월군 남면 광천리 산67-1</dd>
+            </div>
+            <div class="fact-row">
+              <dt>지정</dt>
+              <dd>국가지정 명승 제50호 (2008년)</dd>
+            </div>
+            <div class="fact-row">
+              <dt>운영시간</dt>
+              <dd>09:00~18:00 (입장 마감 17:00)</dd>
+            </div>
+            <div class="fact-row">
+              <dt>입장료</dt>
+              <dd>
+                어른 3,000원 · 청소년·군인 2,500원 · 어린이 2,000원 · 경로 1,000원
+                (7세 이하, 국가유공자 및 배우자, 장애인복지카드 소지자 무료)
+              </dd>
+            </div>
+            <div class="fact-row">
+              <dt>문의</dt>
+              <dd>청령포 관리소 033-374-1317 · 매표소 033-372-1240</dd>
+            </div>
+            <div class="fact-row">
+              <dt>열린관광</dt>
+              <dd>
+                장애인 주차장과 이용 가능 화장실, 주차장에서 이어지는 경사로와 미끄럼방지
+                보행로가 갖춰져 있습니다. 매표소의 배리어프리 키오스크는 단종 이야기를
+                애니메이션·자막·수어로 안내하고, 전망대에는 유람선 탑승이 어려운 분을 위한
+                청령포 촉각 모형이 있습니다.
+              </dd>
+            </div>
+          </dl>
+
+          <p class="source-note">
+            장소 정보와 무장애 관광 정보는 한국관광공사 열린관광 모두의 여행
+            <a
+              href="https://access.visitkorea.or.kr/opentour/detail.do?cotId=f94fc49c-ccfd-40e4-bf4c-15a70de6a516"
+              target="_blank"
+              rel="noopener"
+              >청령포 상세 페이지</a
+            >를 참고했습니다. 화면의 그림은 실제 사진이 아닌 창작 일러스트입니다.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p class="font-display" style="color: #1a2b33">트립엔터</p>
+      <p class="mt-2">세상의 모든 장소를 코드로 기록합니다</p>
+    </footer>
+
+    <script src="../js/menu.js" defer></script>
+    <script src="./cheongnyeongpo.js" defer></script>
+  </body>
+</html>

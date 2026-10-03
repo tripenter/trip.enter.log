@@ -1,0 +1,551 @@
+.stage {
+  position: relative;
+  height: 100svh;
+  min-height: 540px;
+  overflow: hidden;
+  background: #0b1430;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+
+.stage canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.sky-canvas {
+  z-index: 1;
+}
+
+.scene {
+  position: absolute;
+  z-index: 2;
+  will-change: transform;
+}
+
+.scene-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  filter: brightness(var(--art-bright, 1)) contrast(var(--art-contrast, 1))
+    saturate(var(--art-sat, 1));
+}
+
+.scene-tint,
+.scene-light {
+  position: absolute;
+  inset: 0;
+  mask: url("../img/cheongnyeongpo-mask.png") center / 100% 100% no-repeat;
+  -webkit-mask: url("../img/cheongnyeongpo-mask.png") center / 100% 100% no-repeat;
+}
+
+.scene-tint {
+  background: var(--grade, #ffffff);
+  opacity: var(--grade-a, 0.1);
+  mix-blend-mode: multiply;
+}
+
+.scene-light {
+  background: radial-gradient(
+    circle at var(--light-x, 50%) var(--light-y, 0%),
+    var(--light-color, #ffd9a0),
+    transparent 58%
+  );
+  opacity: var(--light-a, 0);
+  mix-blend-mode: screen;
+}
+
+.water-canvas {
+  z-index: 3;
+}
+
+.figure {
+  position: absolute;
+  right: min(2vw, 28px);
+  bottom: 0;
+  height: clamp(280px, 56vh, 620px);
+  aspect-ratio: 864 / 906;
+  z-index: 4;
+  will-change: transform;
+}
+
+.figure-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  filter: brightness(var(--art-bright, 1)) contrast(var(--art-contrast, 1))
+    saturate(var(--art-sat, 1)) drop-shadow(0 6px 14px rgba(26, 36, 50, 0.22));
+}
+
+.figure-tint,
+.figure-rim {
+  position: absolute;
+  inset: 0;
+  mask: url("../img/danjong-mask.png") center / 100% 100% no-repeat;
+  -webkit-mask: url("../img/danjong-mask.png") center / 100% 100% no-repeat;
+}
+
+.figure-tint {
+  background: var(--grade, #ffffff);
+  opacity: var(--grade-a, 0.1);
+  mix-blend-mode: multiply;
+}
+
+.figure-rim {
+  background: radial-gradient(
+    circle at var(--rim-x, 100%) 18%,
+    var(--light-color, #ffd9a0),
+    transparent 52%
+  );
+  opacity: var(--rim-a, 0);
+  mix-blend-mode: screen;
+}
+
+/* 해 반대쪽으로 눕는 발밑 그림자 */
+.figure-shadow {
+  position: absolute;
+  left: 62%;
+  top: 85%;
+  width: 52%;
+  height: 7%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(36, 44, 58, 0.72), rgba(36, 44, 58, 0));
+  opacity: var(--shadow-a, 0);
+  transform: translate(-50%, -50%) translateX(var(--shadow-dx, 0px))
+    scaleX(var(--shadow-sx, 1));
+  filter: blur(3px);
+}
+
+.air-canvas {
+  z-index: 5;
+}
+
+.hotspots {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  will-change: transform;
+}
+
+.hotspot {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  background: rgba(26, 43, 51, 0.22);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  transition: transform 0.25s ease, background 0.25s ease, border-color 0.25s ease;
+}
+
+.hotspot-dot {
+  position: absolute;
+  inset: -6px;
+  z-index: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  font-size: 0;
+  color: transparent;
+  cursor: pointer;
+}
+
+.hotspot-dot:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.9);
+  outline-offset: 3px;
+}
+
+.hotspot::before {
+  content: "";
+  position: absolute;
+  inset: 13px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.85);
+  pointer-events: none;
+}
+
+.hotspot::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  animation: spot-pulse 2.8s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes spot-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(2.1);
+    opacity: 0;
+  }
+}
+
+.hotspot:hover,
+.hotspot:focus-within {
+  transform: scale(1.14);
+  background: rgba(242, 184, 75, 0.5);
+  border-color: rgba(255, 255, 255, 0.9);
+}
+
+.hotspot.is-found {
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  border-color: rgba(255, 221, 150, 0.95);
+  background: rgba(242, 184, 75, 0.78);
+}
+
+.hotspot.is-found::before {
+  inset: 9px;
+  background: #fffaf0;
+  box-shadow: 0 0 12px rgba(255, 206, 120, 0.9);
+}
+
+.hotspot.is-found::after {
+  animation: none;
+  opacity: 0;
+}
+
+.hotspot-card {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 14px);
+  width: min(280px, 72vw);
+  margin-left: -140px;
+  padding: 0.9rem 1rem 1rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(26, 43, 51, 0.12);
+  box-shadow: 0 18px 40px rgba(9, 20, 30, 0.28);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  color: var(--ink);
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transition: opacity 0.26s ease, transform 0.26s ease, visibility 0.26s;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.hotspot[data-align="start"] .hotspot-card {
+  left: 0;
+  margin-left: -8px;
+}
+
+.hotspot[data-align="end"] .hotspot-card {
+  left: auto;
+  right: 0;
+  margin-left: 0;
+  margin-right: -8px;
+}
+
+.hotspot[data-flip="down"] .hotspot-card {
+  bottom: auto;
+  top: calc(100% + 14px);
+}
+
+/* 카드는 포인트 위에 마우스가 있을 때만 표시한다. */
+.hotspot.is-open {
+  z-index: 30;
+}
+
+.hotspot.is-open .hotspot-card {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.hotspot-card h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+}
+
+.hotspot-card p {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.7;
+  color: rgba(26, 43, 51, 0.74);
+}
+
+.hotspot-card .card-tag {
+  display: inline-block;
+  margin-bottom: 0.45rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--code);
+}
+
+.stage-ui {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 4.5rem 1.5rem 1.5rem;
+  pointer-events: none;
+  color: #fff;
+  text-shadow: 0 1px 18px rgba(9, 18, 32, 0.55);
+}
+
+.stage-ui::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 46%;
+  background: linear-gradient(180deg, rgba(9, 18, 32, 0.42), rgba(9, 18, 32, 0));
+  pointer-events: none;
+}
+
+.ui-top,
+.ui-bottom {
+  position: relative;
+}
+
+.ui-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.art-eyebrow {
+  margin: 0 0 0.4rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  opacity: 0.78;
+}
+
+.art-title {
+  margin: 0;
+  font-size: clamp(1.7rem, 4.6vw, 3rem);
+  line-height: 1.16;
+  letter-spacing: -0.03em;
+}
+
+.art-lede {
+  margin: 0.7rem 0 0;
+  max-width: 24em;
+  font-size: 0.94rem;
+  line-height: 1.8;
+  opacity: 0.84;
+}
+
+.sun-clock {
+  padding: 0.55rem 0.9rem 0.6rem;
+  border-radius: 16px;
+  background: rgba(9, 18, 32, 0.26);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.clock-time {
+  display: block;
+  font-size: clamp(1.4rem, 3.4vw, 2.1rem);
+  letter-spacing: 0.02em;
+}
+
+.clock-phase {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
+  opacity: 0.8;
+}
+
+.ui-bottom {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+}
+
+.art-hint {
+  margin: 0;
+  padding: 0.5rem 0.95rem;
+  border-radius: 999px;
+  background: rgba(9, 18, 32, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+  transition: opacity 0.4s ease;
+}
+
+.quest {
+  display: block;
+  margin-top: 0.55rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
+.quest strong {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.compass {
+  position: absolute;
+  top: var(--horizon, 40%);
+  font-size: 0.76rem;
+  letter-spacing: 0.3em;
+  opacity: 0.5;
+  transform: translateY(-50%);
+}
+
+.compass-e {
+  right: 1.1rem;
+}
+
+.compass-w {
+  left: 1.1rem;
+}
+
+.reward {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  width: min(430px, 82vw);
+  height: fit-content;
+  max-height: calc(100% - 3rem);
+  margin: auto;
+  padding: 1.6rem 1.5rem;
+  border-radius: 20px;
+  background: rgba(9, 18, 32, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: #fff;
+  text-align: center;
+  text-shadow: 0 1px 18px rgba(9, 18, 32, 0.55);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 1.2s ease, visibility 1.2s;
+}
+
+.reward.is-shown {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.reward h2 {
+  margin: 0 0 0.8rem;
+  font-size: 1.2rem;
+  letter-spacing: -0.01em;
+}
+
+.reward blockquote {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 2;
+  opacity: 0.9;
+}
+
+.reward cite {
+  display: block;
+  margin-top: 0.9rem;
+  font-size: 0.74rem;
+  letter-spacing: 0.14em;
+  font-style: normal;
+  opacity: 0.6;
+}
+
+.fact-grid {
+  margin-top: 2.5rem;
+  display: grid;
+  gap: 0;
+}
+
+.fact-row {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  gap: 1rem;
+  padding: 0.95rem 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.95rem;
+  line-height: 1.75;
+}
+
+.fact-row dt {
+  color: var(--code);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  padding-top: 0.15rem;
+}
+
+.fact-row dd {
+  margin: 0;
+  color: rgba(26, 43, 51, 0.78);
+}
+
+.source-note {
+  margin: 2rem 0 0;
+  font-size: 0.86rem;
+  color: rgba(26, 43, 51, 0.55);
+  line-height: 1.8;
+}
+
+.source-note a {
+  color: var(--code);
+}
+
+@media (max-width: 720px) {
+  .stage-ui {
+    padding: 4rem 1rem 1rem;
+  }
+
+  .ui-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .sun-clock {
+    text-align: left;
+  }
+
+  .art-lede {
+    display: none;
+  }
+
+  .figure {
+    height: clamp(220px, 40vh, 360px);
+    right: -4vw;
+  }
+
+  .fact-row {
+    grid-template-columns: 1fr;
+    gap: 0.2rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hotspot::after {
+    animation: none;
+  }
+}
