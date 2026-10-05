@@ -154,6 +154,19 @@ body {
   text-transform: uppercase;
 }
 
+.nav-panel-inner.is-empty {
+  display: block;
+  padding-top: 1.4rem;
+  padding-bottom: 1.55rem;
+}
+
+.nav-panel .panel-empty {
+  margin: 0;
+  color: rgba(26, 43, 51, 0.48);
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+}
+
 @media (max-width: 768px) {
   .nav-panel-inner {
     grid-template-columns: 1fr;

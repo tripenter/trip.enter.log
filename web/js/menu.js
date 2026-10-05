@@ -31,21 +31,16 @@
     const children = Array.isArray(menu.children) ? menu.children : [];
     const title = escapeHtml(menu.title || "");
     const topHref = menuHref(menu.folder);
-
-    if (!children.length) {
-      return `
-        <div class="nav-item nav-link-desktop" data-nav-item>
-          <a class="nav-link" href="${topHref}">${title}</a>
-        </div>
-      `;
-    }
+    const panelBody = children.length
+      ? children.map(renderChild).join("")
+      : `<p class="panel-empty">기록 예정이에요</p>`;
 
     return `
       <div class="nav-item nav-link-desktop" data-nav-item>
         <a class="nav-link" href="${topHref}">${title}</a>
         <div class="nav-panel" role="region" aria-label="${title} 하위메뉴">
-          <div class="nav-panel-inner">
-            ${children.map(renderChild).join("")}
+          <div class="nav-panel-inner${children.length ? "" : " is-empty"}">
+            ${panelBody}
           </div>
         </div>
       </div>
