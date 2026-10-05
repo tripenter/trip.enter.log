@@ -39,8 +39,8 @@
 .scene-light {
   position: absolute;
   inset: 0;
-  mask: url("../img/cheongnyeongpo-mask.png") center / 100% 100% no-repeat;
-  -webkit-mask: url("../img/cheongnyeongpo-mask.png") center / 100% 100% no-repeat;
+  mask: url("../../img/cheongnyeongpo-mask.png") center / 100% 100% no-repeat;
+  -webkit-mask: url("../../img/cheongnyeongpo-mask.png") center / 100% 100% no-repeat;
 }
 
 .scene-tint {
@@ -86,8 +86,8 @@
 .figure-rim {
   position: absolute;
   inset: 0;
-  mask: url("../img/danjong-mask.png") center / 100% 100% no-repeat;
-  -webkit-mask: url("../img/danjong-mask.png") center / 100% 100% no-repeat;
+  mask: url("../../img/danjong-mask.png") center / 100% 100% no-repeat;
+  -webkit-mask: url("../../img/danjong-mask.png") center / 100% 100% no-repeat;
 }
 
 .figure-tint {
