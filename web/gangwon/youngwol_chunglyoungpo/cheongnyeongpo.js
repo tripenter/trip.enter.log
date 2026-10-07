@@ -189,6 +189,7 @@
     travel: 0,
     hint: 0,
     rewardLock: false,
+    holdingLastCard: false,
     completed: false,
   };
 
@@ -331,7 +332,7 @@
       };
 
       const showCard = () => {
-        if (state.rewardLock) return;
+        if (state.rewardLock || state.holdingLastCard) return;
         spotLayer.querySelectorAll(".hotspot.is-open").forEach((other) => {
           if (other !== el) other.classList.remove("is-open");
         });
@@ -340,6 +341,8 @@
       };
 
       const hideCard = () => {
+        // 마지막 자리를 찾은 직후 10초 동안은 설명 패널을 유지한다.
+        if (state.holdingLastCard && el.classList.contains("is-found")) return;
         el.classList.remove("is-open");
       };
 
@@ -359,20 +362,25 @@
   function complete() {
     if (state.completed) return;
     state.completed = true;
-    state.rewardLock = true;
-
-    spotLayer.querySelectorAll(".hotspot.is-open").forEach((el) => {
-      el.classList.remove("is-open");
-    });
-    rewardEl.classList.add("is-shown");
+    // 마지막 설명 패널을 먼저 보여 주고, 10초 뒤에 완료 패널을 연다.
+    state.holdingLastCard = true;
     setHint(4, "밤이 오면 강에 등불이 흐릅니다");
 
     window.setTimeout(() => {
-      rewardEl.classList.remove("is-shown");
-      // 페이드가 끝난 뒤 포인트 설명을 다시 허용한다.
+      state.holdingLastCard = false;
+      state.rewardLock = true;
+      spotLayer.querySelectorAll(".hotspot.is-open").forEach((el) => {
+        el.classList.remove("is-open");
+      });
+      rewardEl.classList.add("is-shown");
+
       window.setTimeout(() => {
-        state.rewardLock = false;
-      }, reduceMotion ? 0 : 1200);
+        rewardEl.classList.remove("is-shown");
+        // 페이드가 끝난 뒤 포인트 설명을 다시 허용한다.
+        window.setTimeout(() => {
+          state.rewardLock = false;
+        }, reduceMotion ? 0 : 1200);
+      }, 10000);
     }, 10000);
 
     if (reduceMotion) return;
