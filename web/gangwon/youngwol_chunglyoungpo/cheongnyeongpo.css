@@ -295,37 +295,43 @@
 
 .hotspot-card.has-bg {
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.78);
+  isolation: isolate;
+  background: #dfe8ec;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
-.hotspot-card.has-bg::before {
-  content: "";
+.hotspot-card .card-bg {
   position: absolute;
-  inset: -12px;
-  z-index: -1;
-  background: var(--card-bg) center / cover no-repeat;
-  filter: blur(7px) saturate(0.9);
-  opacity: 0.42;
-  transform: scale(1.08);
+  inset: -14px;
+  z-index: 0;
+  width: calc(100% + 28px);
+  height: calc(100% + 28px);
+  object-fit: cover;
+  /* 기존 blur 5px에서 20% 줄여 더 선명하게 */
+  filter: blur(4px) saturate(1.08);
+  opacity: 1;
+  pointer-events: none;
+  user-select: none;
 }
 
-.hotspot-card.has-bg::after {
-  content: "";
+.hotspot-card .card-veil {
   position: absolute;
   inset: 0;
-  z-index: -1;
+  z-index: 1;
   background: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.72),
-    rgba(255, 255, 255, 0.88)
+    rgba(255, 255, 255, 0.28),
+    rgba(255, 255, 255, 0.44)
   );
+  pointer-events: none;
 }
 
 .hotspot-card.has-bg .card-tag,
 .hotspot-card.has-bg h3,
 .hotspot-card.has-bg p {
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
 
 .stage-ui {

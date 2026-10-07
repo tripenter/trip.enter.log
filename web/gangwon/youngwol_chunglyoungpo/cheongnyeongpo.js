@@ -309,8 +309,10 @@
 
       const card = document.createElement("div");
       card.className = spot.bg ? "hotspot-card has-bg" : "hotspot-card";
-      if (spot.bg) card.style.setProperty("--card-bg", `url("${spot.bg}")`);
-      card.innerHTML = `<span class="card-tag font-mono">${spot.tag}</span><h3 class="font-display">${spot.title}</h3><p>${spot.text}</p>`;
+      const bgLayer = spot.bg
+        ? `<img class="card-bg" src="${spot.bg}" alt="" aria-hidden="true" /><span class="card-veil" aria-hidden="true"></span>`
+        : "";
+      card.innerHTML = `${bgLayer}<span class="card-tag font-mono">${spot.tag}</span><h3 class="font-display">${spot.title}</h3><p>${spot.text}</p>`;
 
       const discover = () => {
         if (el.classList.contains("is-found")) return;
