@@ -71,6 +71,7 @@
       tag: "cairn",
       title: "망향탑",
       text: "어린 단종이 이곳에 올라 한양을 그리며 쌓았다는 탑으로 단종의 심정을 헤아릴 수 있습니다.",
+      bg: "/img/manghyangtap.jpg",
     },
     {
       nx: 0.07,
