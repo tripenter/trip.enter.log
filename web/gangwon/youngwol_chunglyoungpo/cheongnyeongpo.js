@@ -56,6 +56,7 @@
       tag: "hill",
       title: "노산대",
       text: "단종이 한양 쪽 하늘을 바라보며 눈물을 흘렸다고 전해지는 언덕입니다.",
+      bg: "/img/nosandae.png",
     },
     {
       nx: 0.63,
