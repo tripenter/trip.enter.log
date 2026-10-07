@@ -32,6 +32,7 @@
       tag: "cliff",
       title: "육륙봉",
       text: "강 건너에 솟은 암벽. 한반도를 빼닮은 생김새로 청령포를 명승으로 만든 얼굴입니다.",
+      bg: "/img/yukryukbong.jpg",
     },
     {
       nx: 0.51,
