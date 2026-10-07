@@ -74,6 +74,7 @@
       tag: "river",
       title: "서강",
       text: "동·남·북 삼면을 감싸 도는 강. 물이 길을 끊어 이곳은 섬이 아니면서 섬이 되었습니다.",
+      bg: "/img/seogang.jpg",
     },
   ];
 
@@ -307,7 +308,8 @@
       dot.textContent = spot.title;
 
       const card = document.createElement("div");
-      card.className = "hotspot-card";
+      card.className = spot.bg ? "hotspot-card has-bg" : "hotspot-card";
+      if (spot.bg) card.style.setProperty("--card-bg", `url("${spot.bg}")`);
       card.innerHTML = `<span class="card-tag font-mono">${spot.tag}</span><h3 class="font-display">${spot.title}</h3><p>${spot.text}</p>`;
 
       const discover = () => {

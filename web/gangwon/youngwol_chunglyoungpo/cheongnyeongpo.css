@@ -293,6 +293,41 @@
   color: var(--code);
 }
 
+.hotspot-card.has-bg {
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.hotspot-card.has-bg::before {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  z-index: -1;
+  background: var(--card-bg) center / cover no-repeat;
+  filter: blur(7px) saturate(0.9);
+  opacity: 0.42;
+  transform: scale(1.08);
+}
+
+.hotspot-card.has-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.72),
+    rgba(255, 255, 255, 0.88)
+  );
+}
+
+.hotspot-card.has-bg .card-tag,
+.hotspot-card.has-bg h3,
+.hotspot-card.has-bg p {
+  position: relative;
+  z-index: 1;
+}
+
 .stage-ui {
   position: absolute;
   inset: 0;
