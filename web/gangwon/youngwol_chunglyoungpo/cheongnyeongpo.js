@@ -40,6 +40,7 @@
       tag: "pine",
       title: "관음송",
       text: "단종의 유배지에서 그의 슬픔을 지켜봐 온 600년 된 소나무입니다.",
+      bg: "/img/gwaneumsong.jpg",
     },
     {
       nx: 0.3,
