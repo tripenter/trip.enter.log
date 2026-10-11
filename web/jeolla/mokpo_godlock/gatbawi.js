@@ -24,6 +24,7 @@
     hasPointer: false,
     wipeTrail: [],
     ready: false,
+    cloudsWereHeavy: true,
   };
 
   const rainImg = new Image();
@@ -42,13 +43,125 @@
     };
   })();
 
-  const clouds = Array.from({ length: 16 }, () => ({
-    x: rnd(),
-    y: 0.02 + rnd() * 0.34,
+  function cloudRand(seed) {
+    let s = seed >>> 0;
+    return () => {
+      s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+      return s / 4294967296;
+    };
+  }
+
+  /** 밑은 편평하고 위는 높이가 다른 봉우리가 몸통에 붙은 적운을 한 장으로 구워 둔다. */
+  function bakeCloudSprite(rand) {
+    const span = 1.28 + rand() * 0.28;
+    const belly = 0.2;
+    const puffs = [];
+    const count = 5;
+    for (let i = 0; i < count; i += 1) {
+      const t = (i + 0.5) / count;
+      const edge = Math.sin(t * Math.PI);
+      const s = 0.15 + edge * 0.07 + rand() * 0.035;
+      const rise = edge * (0.08 + rand() * 0.2);
+      puffs.push({
+        ox: (t - 0.5) * span + (rand() - 0.5) * 0.03,
+        oy: belly - rise * 0.55,
+        s,
+      });
+    }
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const p of puffs) {
+      minX = Math.min(minX, p.ox - p.s);
+      maxX = Math.max(maxX, p.ox + p.s);
+      minY = Math.min(minY, p.oy - p.s);
+      maxY = Math.max(maxY, p.oy + p.s);
+    }
+    const pad = 0.06;
+    minX -= pad;
+    minY -= pad;
+    maxX += pad;
+    maxY = Math.max(maxY, belly + 0.06) + pad;
+
+    const unit = 280;
+    const sharp = document.createElement("canvas");
+    sharp.width = Math.max(1, Math.ceil((maxX - minX) * unit));
+    sharp.height = Math.max(1, Math.ceil((maxY - minY) * unit));
+    const g = sharp.getContext("2d");
+    const px = (p) => (p.ox - minX) * unit;
+    const py = (p) => (p.oy - minY) * unit;
+
+    g.fillStyle = "rgb(168, 176, 186)";
+    for (const p of puffs) {
+      g.beginPath();
+      g.arc(px(p), py(p), p.s * unit, 0, Math.PI * 2);
+      g.fill();
+    }
+    for (const p of puffs) {
+      const rad = p.s * unit;
+      const hx = px(p) - rad * 0.18;
+      const hy = py(p) - rad * 0.42;
+      const glow = g.createRadialGradient(hx, hy, rad * 0.04, hx, hy, rad * 0.85);
+      glow.addColorStop(0, "rgba(236, 240, 244, 0.8)");
+      glow.addColorStop(1, "rgba(236, 240, 244, 0)");
+      g.fillStyle = glow;
+      g.beginPath();
+      g.arc(hx, hy, rad * 0.85, 0, Math.PI * 2);
+      g.fill();
+    }
+
+    const cut = (belly - minY) * unit;
+    g.globalCompositeOperation = "destination-in";
+    g.fillStyle = "#fff";
+    g.beginPath();
+    g.moveTo(0, 0);
+    g.lineTo(sharp.width, 0);
+    g.lineTo(sharp.width, cut);
+    g.quadraticCurveTo(sharp.width * 0.5, cut + unit * 0.045, 0, cut);
+    g.closePath();
+    g.fill();
+
+    const soft = document.createElement("canvas");
+    soft.width = sharp.width;
+    soft.height = sharp.height;
+    const sg = soft.getContext("2d");
+    sg.filter = "blur(5px)";
+    sg.drawImage(sharp, 0, 0);
+
+    return { canvas: soft, minX, minY, w: maxX - minX, h: maxY - minY };
+  }
+
+  /** 사진 왼쪽 갓바위와 겹치지 않도록 구름을 이 비율 오른쪽에만 둔다. */
+  const ROCK_CLEAR_X = 0.2;
+  const CLOUD_Y0 = 0.02;
+  const CLOUD_YH = 0.34;
+
+  const clouds = Array.from({ length: 38 }, (_, i) => ({
+    x: ROCK_CLEAR_X + rnd() * (1 - ROCK_CLEAR_X),
+    y: CLOUD_Y0 + rnd() * CLOUD_YH,
     r: 0.1 + rnd() * 0.18,
     soft: 0.5 + rnd() * 0.4,
     drift: 0.01 + rnd() * 0.025,
+    sprite: bakeCloudSprite(cloudRand(8100 + i * 131)),
+    shiftTop40: false,
+    shiftTop30: false,
+    shiftTop20: false,
+    shiftTop10: false,
   }));
+
+  {
+    const byY = [...clouds].sort((a, b) => a.y - b.y);
+    const n40 = Math.max(1, Math.ceil(byY.length * 0.4));
+    const n30 = Math.max(1, Math.ceil(byY.length * 0.3));
+    const n20 = Math.max(1, Math.ceil(byY.length * 0.2));
+    const n10 = Math.max(1, Math.ceil(byY.length * 0.1));
+    for (let i = 0; i < n40; i += 1) byY[i].shiftTop40 = true;
+    for (let i = 0; i < n30; i += 1) byY[i].shiftTop30 = true;
+    for (let i = 0; i < n20; i += 1) byY[i].shiftTop20 = true;
+    for (let i = 0; i < n10; i += 1) byY[i].shiftTop10 = true;
+  }
 
   const drops = Array.from({ length: 260 }, () => ({
     x: rnd(),
@@ -70,11 +183,138 @@
       hue: 170 + rnd() * 90,
       umbrella,
       scale: 0.8 + rnd() * 0.35,
+      bubble: null,
     };
   }
 
   const rainyPeople = Array.from({ length: 4 }, () => makePerson(true));
   const clearPeople = Array.from({ length: 15 }, () => makePerson(false));
+
+  const LINES_RAIN = [
+    "우산 없었으면 큰일인데!",
+    "비가 추적추적하네…",
+    "갓바위가 빗속에 더 운치 있다",
+    "신발 젖겠어, 조심해!",
+    "빗소리가 좋네",
+    "우산 나눠 쓸까?",
+    "바다 위 비 냄새 맡아봐",
+    "미끄러우니까 손잡이 잡아",
+    "사진 찍기엔 흐린 날이 제격이야",
+    "저 바위, 삿갓 쓴 것 같지 않아?",
+    "비 맞으며 걷는 맛이지",
+    "바람까지 부니까 더 춥다",
+    "보행교가 살짝 흔들리네",
+    "비옷 입고 오길 잘했어",
+    "빗줄기 사이로 도시가 보여",
+  ];
+
+  const LINES_CLEAR = [
+    "와! 멋지다!",
+    "굉장한데?",
+    "여기 풍경 진짜다",
+    "갓바위 실물이 훨씬 커",
+    "사진 찍자, 빨리!",
+    "바닷바람 시원하다",
+    "저 실루엣 예술이야",
+    "목포 오면 꼭 여기 와야 해",
+    "걸으면서 보니 더 예쁘네",
+    "하늘이 맑아서 다행이다",
+    "보행교 끝으로 가볼까?",
+    "이거 완전 인생샷 각인데",
+    "파도 소리가 편안해",
+    "친구들한테도 알려줘야지",
+    "자연이 깎아 낸 조각품이야",
+  ];
+
+  const LINES_FUN = [
+    "배고파…",
+    "화장실 급해!",
+    "다리 아파, 조금만 쉬자",
+    "휴대폰 배터리 거의 없어",
+    "누가 아이스크림 사 오면 좋겠다",
+    "모기 물렸나 간지러워",
+    "커피 마시고 싶다",
+    "신발끈 풀렸어!",
+    "차 키가 어디 갔지…",
+    "배에서 꼬르륵 소리 났지?",
+  ];
+
+  function clearAllBubbles() {
+    for (const p of rainyPeople) p.bubble = null;
+    for (const p of clearPeople) p.bubble = null;
+  }
+
+  function activeBubbleTexts() {
+    const now = performance.now();
+    const used = new Set();
+    for (const p of rainyPeople) {
+      if (p.bubble && now < p.bubble.until) used.add(p.bubble.text);
+    }
+    for (const p of clearPeople) {
+      if (p.bubble && now < p.bubble.until) used.add(p.bubble.text);
+    }
+    return used;
+  }
+
+  function pickFrom(lines, used) {
+    const free = lines.filter((t) => !used.has(t));
+    if (!free.length) return null;
+    return free[Math.floor(Math.random() * free.length)];
+  }
+
+  function pickLine(rainy) {
+    const used = activeBubbleTexts();
+    if (Math.random() < 0.1) {
+      const fun = pickFrom(LINES_FUN, used);
+      if (fun) return fun;
+    }
+    const main = pickFrom(rainy ? LINES_RAIN : LINES_CLEAR, used);
+    if (main) return main;
+    return (
+      pickFrom([...LINES_FUN, ...LINES_RAIN, ...LINES_CLEAR], used) || "와!"
+    );
+  }
+
+  function personScale(p) {
+    return p.scale * (state.h / 1100) * 0.85 * 1.5 * 1.2;
+  }
+
+  function personScreenPos(p) {
+    const pos = deckPath(p.u);
+    const bob = Math.sin(state.t * 7.5 + p.phase) * 0.9;
+    return { x: pos.x, y: pos.y - 6 + bob, s: personScale(p) };
+  }
+
+  function visiblePeople(clear) {
+    const list = [];
+    const rainCount = 1 + Math.floor(clamp(1 - clear, 0, 1) * 3);
+    const clearCount = 10 + Math.floor(clear * 5);
+    if (clear < 0.72) {
+      for (let i = 0; i < rainCount; i += 1) list.push({ p: rainyPeople[i], rainy: true });
+    }
+    if (clear > 0.28) {
+      for (let i = 0; i < clearCount; i += 1) list.push({ p: clearPeople[i], rainy: false });
+    }
+    return list;
+  }
+
+  function hitPerson(nx, ny) {
+    const px = nx * state.w;
+    const py = ny * state.h;
+    const list = visiblePeople(state.clear);
+    for (let i = list.length - 1; i >= 0; i -= 1) {
+      const { p, rainy } = list[i];
+      if (p.bubble && performance.now() < p.bubble.until) continue;
+      const pos = personScreenPos(p);
+      const hw = 16 * pos.s;
+      const top = pos.y - (p.umbrella ? 38 : 28) * pos.s;
+      const bot = pos.y + 12 * pos.s;
+      if (px >= pos.x - hw && px <= pos.x + hw && py >= top && py <= bot) {
+        return { p, rainy };
+      }
+    }
+    return null;
+  }
 
   function onReady() {
     loaded += 1;
@@ -120,13 +360,15 @@
     return state.h * 0.42;
   }
 
-  /** 사진 속 보행교 대략 경로 (정규화 u: 0→1) */
+  /** 사진 속 보행교 대략 경로 (정규화 u: 0→1, 시작은 왼쪽 28%, 끝은 40px 아래) */
   function deckPath(u) {
-    const x = lerp(state.w * 0.08, state.w * 0.92, u);
+    const x = lerp(state.w * 0.28, state.w, u);
     const y =
       state.h * 0.72 +
       Math.sin(u * Math.PI * 0.9) * state.h * 0.02 -
-      u * state.h * 0.01;
+      u * state.h * 0.01 +
+      7 +
+      u * 40;
     return { x, y };
   }
 
@@ -160,8 +402,19 @@
     if (state.my < 0.55) wipeAt(state.mx, state.my);
   }
 
+  function onPointerDown(e) {
+    onPointer(e);
+    const hit = hitPerson(state.mx, state.my);
+    if (!hit) return;
+    const rainyMood = hit.rainy || state.clear < 0.45;
+    hit.p.bubble = {
+      text: pickLine(rainyMood),
+      until: performance.now() + 10000,
+    };
+  }
+
   canvas.addEventListener("pointermove", onPointer);
-  canvas.addEventListener("pointerdown", onPointer);
+  canvas.addEventListener("pointerdown", onPointerDown);
   canvas.addEventListener(
     "pointerleave",
     () => {
@@ -204,11 +457,12 @@
     }
   }
 
-  /** 수면 띠를 사인 오프셋으로 다시 그려 파도감 */
+  /** 하단 30% · 왼쪽 35% 제외 구간에만 사인 오프셋으로 물결감 */
   function drawWaveDistortion(clear) {
-    const y0 = Math.floor(seaTop());
+    const y0 = Math.floor(state.h * 0.7);
     const y1 = state.h;
-    if (y1 <= y0) return;
+    const x0 = Math.floor(state.w * 0.35);
+    if (y1 <= y0 || x0 >= state.w) return;
 
     // 캔버스 비트맵 → 오프스크린(CSS 픽셀) 복사 후 물결로 되그림
     waveCtx.setTransform(1, 0, 0, 1, 0, 0);
@@ -217,40 +471,58 @@
 
     const amp = lerp(2.8, 1.2, clear);
     const step = 3;
+    const ww = state.w - x0;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x0, y0, ww, y1 - y0);
+    ctx.clip();
     for (let y = y0; y < y1; y += step) {
       const depth = (y - y0) / (y1 - y0);
       const shift =
         Math.sin(y * 0.045 + state.t * 2.1) * amp * (0.35 + depth) +
         Math.sin(y * 0.11 - state.t * 1.4) * amp * 0.45;
-      ctx.drawImage(waveCanvas, 0, y, state.w, step, shift, y, state.w, step);
+      ctx.drawImage(waveCanvas, x0, y, ww, step, x0 + shift, y, ww, step);
     }
 
     const bands = 7;
     for (let i = 0; i < bands; i += 1) {
       const yy = y0 + 24 + i * ((y1 - y0) / (bands + 1));
       ctx.beginPath();
-      for (let x = 0; x <= state.w; x += 8) {
+      for (let x = x0; x <= state.w; x += 8) {
         const wave =
           Math.sin(x * 0.014 + state.t * 1.6 + i) * lerp(5.5, 2.5, clear) +
           Math.sin(x * 0.03 - state.t + i * 1.3) * 1.8;
         const y = yy + wave;
-        if (x === 0) ctx.moveTo(x, y);
+        if (x === x0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       }
       ctx.strokeStyle = `rgba(220, 235, 245, ${0.07 + clear * 0.08})`;
       ctx.lineWidth = 1.15;
       ctx.stroke();
     }
+    ctx.restore();
   }
 
   function drawClouds(clear) {
     const dens = 1 - clear * 0.95;
     if (dens < 0.02) return;
 
+    const rockPx = state.w * ROCK_CLEAR_X;
+    const span = 1.15 - ROCK_CLEAR_X;
+
     for (const c of clouds) {
-      const cx = ((c.x + state.t * c.drift * 0.015) % 1.35) * state.w - state.w * 0.15;
+      const drift = ((c.x - ROCK_CLEAR_X + state.t * c.drift * 0.015) % span + span) % span;
+      let cx = (ROCK_CLEAR_X + drift) * state.w + 50;
       const cy = c.y * state.h;
       const r = c.r * state.w;
+      const sprite = c.sprite;
+      // 바위 여백을 먼저 맞춘 뒤, 왼쪽 이동을 나중에 적용해야 이동이 남는다
+      const clearX = c.shiftTop20 ? Math.max(0, rockPx - 30) : rockPx;
+      const left = cx + sprite.minX * r;
+      if (left < clearX) cx += clearX - left;
+      if (c.shiftTop40) cx -= 50;
+      if (c.shiftTop30) cx -= 40;
+      if (c.shiftTop10) cx -= 20;
 
       let hole = 0;
       for (const w of state.wipeTrail) {
@@ -262,20 +534,16 @@
       const alpha = dens * c.soft * (1 - hole * 0.97) * (1 - clear * 0.25);
       if (alpha < 0.02) continue;
 
-      const g = ctx.createRadialGradient(cx, cy, r * 0.08, cx, cy, r);
-      g.addColorStop(0, `rgba(195, 202, 210, ${alpha})`);
-      g.addColorStop(0.5, `rgba(165, 174, 184, ${alpha * 0.8})`);
-      g.addColorStop(1, "rgba(150,160,170,0)");
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, r, r * 0.42, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(cx - r * 0.38, cy + r * 0.06, r * 0.55, r * 0.3, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(cx + r * 0.42, cy + r * 0.04, r * 0.5, r * 0.28, 0, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(
+        sprite.canvas,
+        cx + sprite.minX * r,
+        cy + sprite.minY * r,
+        sprite.w * r,
+        sprite.h * r
+      );
+      ctx.restore();
     }
   }
 
@@ -284,7 +552,8 @@
     if (intensity < 0.04) return;
 
     const count = Math.floor(drops.length * intensity);
-    const ySea = seaTop() + 10;
+    const splashY0 = state.h * 0.7;
+    const splashYH = state.h * 0.3;
     ctx.strokeStyle = `rgba(210, 222, 232, ${0.2 + intensity * 0.28})`;
 
     for (let i = 0; i < count; i += 1) {
@@ -297,7 +566,7 @@
         if (splashes.length < MAX_SPLASH && rnd() < 0.5 * intensity) {
           splashes.push({
             x: d.x * state.w,
-            y: ySea + rnd() * (state.h - ySea) * 0.7,
+            y: splashY0 + rnd() * splashYH,
             r: 0.4,
             life: 1,
           });
@@ -330,13 +599,85 @@
     }
   }
 
+  function roundRectPath(x, y, w, h, r) {
+    const rr = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr);
+    ctx.arcTo(x, y, x + w, y, rr);
+    ctx.closePath();
+  }
+
+  function drawSpeechBubble(x, y, text, alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.font = '600 13px "Pretendard", "Noto Sans KR", sans-serif';
+    const padX = 10;
+    const padY = 7;
+    const tw = ctx.measureText(text).width;
+    const bw = tw + padX * 2;
+    const bh = 26;
+    let bx = x - bw / 2;
+    bx = clamp(bx, 8, state.w - bw - 8);
+    const by = y - bh - 10;
+
+    ctx.fillStyle = "rgba(255, 252, 248, 0.94)";
+    ctx.strokeStyle = "rgba(30, 40, 48, 0.22)";
+    ctx.lineWidth = 1;
+    roundRectPath(bx, by, bw, bh, 10);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(x - 5, by + bh);
+    ctx.lineTo(x, by + bh + 7);
+    ctx.lineTo(x + 5, by + bh);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = "#1a242c";
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "center";
+    ctx.fillText(text, bx + bw / 2, by + bh / 2 + 0.5);
+    ctx.restore();
+  }
+
+  function drawBubbles() {
+    const now = performance.now();
+    for (const p of rainyPeople) {
+      if (!p.bubble) continue;
+      if (now >= p.bubble.until) {
+        p.bubble = null;
+        continue;
+      }
+      const pos = personScreenPos(p);
+      const remain = p.bubble.until - now;
+      const fade = remain < 800 ? remain / 800 : 1;
+      const head = pos.y - (p.umbrella ? 36 : 26) * pos.s;
+      drawSpeechBubble(pos.x, head, p.bubble.text, fade);
+    }
+    for (const p of clearPeople) {
+      if (!p.bubble) continue;
+      if (now >= p.bubble.until) {
+        p.bubble = null;
+        continue;
+      }
+      const pos = personScreenPos(p);
+      const remain = p.bubble.until - now;
+      const fade = remain < 800 ? remain / 800 : 1;
+      const head = pos.y - 26 * pos.s;
+      drawSpeechBubble(pos.x, head, p.bubble.text, fade);
+    }
+  }
+
   function drawPerson(p, umbrella, alpha) {
-    const pos = deckPath(p.u);
-    const bob = Math.sin(state.t * 7.5 + p.phase) * 0.9;
-    const s = p.scale * (state.h / 1100) * 0.85;
+    const pos = personScreenPos(p);
+    const s = pos.s;
 
     ctx.save();
-    ctx.translate(pos.x, pos.y - 6 + bob);
+    ctx.translate(pos.x, pos.y);
     ctx.scale(p.dir * s, s);
     ctx.globalAlpha = alpha;
 
@@ -388,10 +729,12 @@
         if (p.u > 1.02) {
           p.u = -0.02;
           p.dir = 1;
+          p.bubble = null;
         }
         if (p.u < -0.02) {
           p.u = 1.02;
           p.dir = -1;
+          p.bubble = null;
         }
         drawPerson(p, true, alpha);
       }
@@ -405,10 +748,12 @@
         if (p.u > 1.02) {
           p.u = -0.02;
           p.dir = 1;
+          p.bubble = null;
         }
         if (p.u < -0.02) {
           p.u = 1.02;
           p.dir = -1;
+          p.bubble = null;
         }
         drawPerson(p, false, alpha);
       }
@@ -416,18 +761,7 @@
   }
 
   function drawCursor() {
-    if (!state.hasPointer) return;
-    const x = state.mx * state.w;
-    const y = state.my * state.h;
-    ctx.save();
-    ctx.strokeStyle = "rgba(255,255,255,0.55)";
-    ctx.fillStyle = "rgba(230, 200, 140, 0.12)";
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.arc(x, y, 20, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
+    /* 시스템 손모양 커서(pointer) 사용 */
   }
 
   function updateUi(clear) {
@@ -465,6 +799,13 @@
     state.wipeTrail = state.wipeTrail.filter((w) => w.life > 0.04);
 
     const clear = state.clear;
+    // 구름이 걷히면(맑음 쪽) 떠 있던 말풍선 전부 제거
+    if (state.cloudsWereHeavy && clear >= 0.55) {
+      clearAllBubbles();
+      state.cloudsWereHeavy = false;
+    }
+    if (clear < 0.3) state.cloudsWereHeavy = true;
+
     ctx.clearRect(0, 0, state.w, state.h);
 
     drawPhotoBase(clear);
@@ -472,6 +813,7 @@
     drawClouds(clear);
     drawPeople(clear);
     drawRain(clear);
+    drawBubbles();
     drawCursor();
     updateUi(clear);
 
