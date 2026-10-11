@@ -3,19 +3,97 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>목포 갓바위: 도시와 공존하는 파도</title>
+    <title>목포 갓바위: 도시와 공존하는 파도 — 트립엔터</title>
+    <meta
+      name="description"
+      content="천연기념물 제500호 목포 갓바위. 마우스로 구름을 걷어내면 추적추적 비가 그치고, 해상보행교와 삿갓 바위가 선명해지는 인터랙티브 장면."
+    />
     <link rel="stylesheet" href="../../css/intro.css" />
+    <link rel="stylesheet" href="./gatbawi.css" />
   </head>
   <body>
     <header class="site-nav" role="banner">
       <nav class="nav-inner" aria-label="주메뉴">
-        <a class="nav-brand font-display" href="../../index.html">트립엔터</a>
+        <a class="nav-brand font-display" href="/index.html">트립엔터</a>
         <div class="nav-dynamic" data-dynamic-menu aria-live="polite"></div>
       </nav>
     </header>
-    <main style="padding: 5rem 1.25rem 2rem">
-      <h1 class="font-display">목포 갓바위: 도시와 공존하는 파도</h1>
+
+    <main>
+      <section class="stage" data-stage aria-label="목포 갓바위 인터랙티브 장면">
+        <canvas class="scene-canvas" data-scene aria-hidden="true"></canvas>
+
+        <div class="stage-ui">
+          <div class="ui-top">
+            <p class="art-eyebrow font-mono">mokpo · gatbawi</p>
+            <h1 class="art-title font-display">목포 갓바위</h1>
+            <p class="art-lede">도시와 공존하는 파도</p>
+          </div>
+
+          <div class="ui-meter" aria-hidden="true">
+            <span class="meter-label font-mono" data-weather>추적추적 비</span>
+            <div class="meter-track">
+              <div class="meter-fill" data-meter></div>
+            </div>
+          </div>
+
+          <p class="art-hint" data-hint>마우스로 구름을 쓸어 걷어내 보세요</p>
+        </div>
+      </section>
+
+      <section class="story" aria-labelledby="story-heading">
+        <div class="story-inner">
+          <p class="story-kicker font-mono">natural monument no.500</p>
+          <h2 id="story-heading" class="font-display">반사되는 노을 빛이 아름다운 목포의 관광 보물</h2>
+          <p>
+            천연기념물 제500호로 지정된 갓바위는 두 사람이 나란히 삿갓을 쓰고 서 있는
+            모습의 바위로, 약 8천만 년 전 화산재가 굳어진 용결응회암입니다. 예전에는
+            배를 타고 나가야만 볼 수 있었던 갓바위를 해상 보행교를 통해 가까이에서
+            조망할 수 있게 되었습니다.
+          </p>
+          <p>
+            해수와 담수가 만나는 자리에 서서, 파도와 안개·염분이 바위를 적셨다 말리기를
+            되풀이하며 모자 모양의 경질부와 벌집 모양의 풍화혈이 만들어졌습니다.
+            인위적인 손길이 닿음 없이 자연이 깎아 낸 조각품입니다.
+          </p>
+
+          <div class="story-facts">
+            <div>
+              <h3 class="font-display">해상 보행교</h3>
+              <p>
+                총연장 298m, 폭 3.6~4.6m. 밀물 때 약 1m 올라왔다가 썰물 때 바닷물을 따라
+                내려갑니다. 목교·도교·부잔교와 야간 경관 조명이 이어집니다.
+              </p>
+            </div>
+            <div>
+              <h3 class="font-display">전설</h3>
+              <p>
+                병든 아버지를 모시던 아들의 이야기에서 큰 바위를 아버지바위, 작은 바위를
+                아들바위라 부르기도 하고, 부처님과 아라한이 놓고 간 삿갓이 바위가 되어
+                중바위라 불리기도 합니다.
+              </p>
+            </div>
+            <div>
+              <h3 class="font-display">안내</h3>
+              <p>
+                위치 목포시 남농로 166-1 (갓바위 해상보행교)<br />
+                이용 동절기 05:00~23:00 · 하절기 05:00~24:00<br />
+                문의 061-273-0536 · 061-270-8598
+              </p>
+            </div>
+          </div>
+
+          <p class="story-source font-mono">
+            출처
+            <a href="https://www.mokpo.go.kr/tour/attraction/nineplace/gatbawi" target="_blank" rel="noopener noreferrer"
+              >목포문화관광 · 갓바위</a
+            >
+          </p>
+        </div>
+      </section>
     </main>
+
     <script src="../../js/menu.js" defer></script>
+    <script src="./gatbawi.js" defer></script>
   </body>
 </html>
