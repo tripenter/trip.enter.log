@@ -97,23 +97,24 @@
   }
 
   function horizonY() {
-    return state.h * 0.58;
+    // 하늘·도시가 위, 바다가 화면 절반 이상을 차지
+    return state.h * 0.42;
   }
 
   function seaY() {
-    return state.h * 0.62;
+    return state.h * 0.46;
   }
 
   function deckPath(u) {
-    // S-curve floating boardwalk across lower mid scene
-    const x0 = state.w * 0.02;
-    const x1 = state.w * 0.98;
+    // 보조 요소: 왼쪽 가장자리에서 갓바위 쪽으로만 짧게 이어지는 보행교
+    const x0 = state.w * -0.02;
+    const x1 = state.w * 0.38;
     const x = lerp(x0, x1, u);
-    const base = state.h * 0.72;
+    const base = state.h * 0.78;
     const y =
-      base +
-      Math.sin(u * Math.PI * 1.15 + 0.4) * state.h * 0.035 +
-      (u - 0.5) * state.h * 0.02;
+      base -
+      u * state.h * 0.06 +
+      Math.sin(u * Math.PI * 0.9) * state.h * 0.012;
     return { x, y };
   }
 
@@ -174,22 +175,27 @@
   function drawCity(clear) {
     const fog = 1 - clear;
     const hy = horizonY();
-    const baseAlpha = lerp(0.18, 0.72, clear);
+    // 원경 실루엣: 비 올 땐 안개에 녹고, 맑아지면 선명해짐
+    const baseAlpha = lerp(0.28, 0.88, clear);
     ctx.save();
     ctx.globalAlpha = baseAlpha;
 
     const buildings = [
-      [0.05, 0.1, 0.12],
-      [0.12, 0.07, 0.16],
-      [0.18, 0.11, 0.1],
-      [0.28, 0.08, 0.14],
-      [0.35, 0.13, 0.09],
-      [0.48, 0.06, 0.18],
-      [0.55, 0.1, 0.11],
-      [0.66, 0.08, 0.15],
-      [0.74, 0.12, 0.1],
-      [0.84, 0.07, 0.17],
-      [0.92, 0.1, 0.12],
+      [0.0, 0.08, 0.14],
+      [0.06, 0.09, 0.2],
+      [0.12, 0.06, 0.16],
+      [0.17, 0.1, 0.22],
+      [0.25, 0.07, 0.15],
+      [0.3, 0.11, 0.24],
+      [0.38, 0.08, 0.13],
+      [0.44, 0.12, 0.26],
+      [0.54, 0.07, 0.17],
+      [0.6, 0.1, 0.21],
+      [0.68, 0.08, 0.14],
+      [0.74, 0.11, 0.23],
+      [0.83, 0.07, 0.16],
+      [0.88, 0.1, 0.2],
+      [0.95, 0.08, 0.15],
     ];
 
     for (const [nx, nw, nh] of buildings) {
@@ -197,14 +203,13 @@
       const w = state.w * nw;
       const h = state.h * nh;
       const y = hy - h;
-      ctx.fillStyle = `rgb(${40 + clear * 30},${52 + clear * 28},${62 + clear * 20})`;
+      ctx.fillStyle = `rgb(${36 + clear * 38},${48 + clear * 32},${58 + clear * 24})`;
       ctx.fillRect(x, y, w, h + 2);
-      // windows
-      if (clear > 0.45) {
-        ctx.fillStyle = `rgba(255, 220, 150, ${(clear - 0.45) * 0.55})`;
-        for (let wy = y + 6; wy < hy - 8; wy += 8) {
-          for (let wx = x + 3; wx < x + w - 3; wx += 7) {
-            if ((wx + wy) % 3 === 0) ctx.fillRect(wx, wy, 2.2, 2.8);
+      if (clear > 0.4) {
+        ctx.fillStyle = `rgba(255, 220, 150, ${(clear - 0.4) * 0.5})`;
+        for (let wy = y + 5; wy < hy - 6; wy += 7) {
+          for (let wx = x + 3; wx < x + w - 3; wx += 6) {
+            if ((wx + wy) % 3 === 0) ctx.fillRect(wx, wy, 2, 2.4);
           }
         }
       }
@@ -212,14 +217,13 @@
 
     ctx.restore();
 
-    // Fog veil over city
     if (fog > 0.02) {
-      const fogG = ctx.createLinearGradient(0, hy - state.h * 0.22, 0, hy + 8);
-      fogG.addColorStop(0, `rgba(170, 182, 192, ${0.55 * fog})`);
-      fogG.addColorStop(0.55, `rgba(150, 164, 176, ${0.72 * fog})`);
-      fogG.addColorStop(1, `rgba(140, 154, 166, ${0.2 * fog})`);
+      const fogG = ctx.createLinearGradient(0, hy - state.h * 0.28, 0, hy + 14);
+      fogG.addColorStop(0, `rgba(170, 182, 192, ${0.62 * fog})`);
+      fogG.addColorStop(0.55, `rgba(150, 164, 176, ${0.8 * fog})`);
+      fogG.addColorStop(1, `rgba(140, 154, 166, ${0.25 * fog})`);
       ctx.fillStyle = fogG;
-      ctx.fillRect(0, hy - state.h * 0.24, state.w, state.h * 0.28);
+      ctx.fillRect(0, hy - state.h * 0.3, state.w, state.h * 0.34);
     }
   }
 
@@ -272,48 +276,53 @@
 
     const g = ctx.createLinearGradient(0, y0, 0, state.h);
     g.addColorStop(0, rgb(shallow));
+    g.addColorStop(0.45, rgb(mixColor(shallow, deep, 0.45)));
     g.addColorStop(1, rgb(deep));
     ctx.fillStyle = g;
     ctx.fillRect(0, y0 - 2, state.w, state.h - y0 + 4);
 
-    // Animated waves
-    const amp = lerp(10, 5, clear);
-    ctx.lineWidth = 1.2;
-    for (let band = 0; band < 7; band += 1) {
-      const yy = y0 + 12 + band * ((state.h - y0) / 8);
+    // 중심 요소: 큰 너울 + 여러 겹의 파도
+    const amp = lerp(18, 10, clear);
+    for (let band = 0; band < 12; band += 1) {
+      const yy = y0 + 8 + band * ((state.h - y0) / 13);
+      const bandAmp = amp * (1 - band * 0.05);
       ctx.beginPath();
-      for (let x = 0; x <= state.w; x += 6) {
+      for (let x = 0; x <= state.w; x += 5) {
         const wave =
-          Math.sin(x * 0.012 + state.t * (1.4 + band * 0.12) + band) * amp * (1 - band * 0.08) +
-          Math.sin(x * 0.035 - state.t * 0.9 + band * 2) * amp * 0.35;
+          Math.sin(x * 0.008 + state.t * (1.1 + band * 0.08) + band * 0.7) * bandAmp +
+          Math.sin(x * 0.022 - state.t * 1.35 + band * 1.4) * bandAmp * 0.45 +
+          Math.sin(x * 0.045 + state.t * 0.7) * bandAmp * 0.18;
         const y = yy + wave;
         if (x === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       }
-      ctx.strokeStyle = `rgba(210, 230, 236, ${0.08 + clear * 0.1})`;
+      ctx.strokeStyle = `rgba(210, 230, 236, ${0.1 + clear * 0.12 + (band % 3 === 0 ? 0.06 : 0)})`;
+      ctx.lineWidth = band % 4 === 0 ? 1.8 : 1.1;
       ctx.stroke();
     }
 
-    // Foam near rocks
-    ctx.fillStyle = `rgba(220, 235, 240, ${0.12 + clear * 0.12})`;
-    for (let i = 0; i < 40; i += 1) {
-      const fx = state.w * (0.28 + (i % 12) * 0.035);
+    // 갓바위 주변 포말 (화면 중앙)
+    ctx.fillStyle = `rgba(220, 235, 240, ${0.14 + clear * 0.16})`;
+    for (let i = 0; i < 55; i += 1) {
+      const fx = state.w * (0.42 + (i % 14) * 0.028);
       const fy =
         y0 +
-        18 +
-        Math.sin(state.t * 2.2 + i) * 4 +
-        (i % 5) * 3;
+        28 +
+        Math.sin(state.t * 2.4 + i * 0.7) * 7 +
+        (i % 6) * 5;
       ctx.beginPath();
-      ctx.ellipse(fx, fy, 6 + (i % 3), 2, 0, 0, Math.PI * 2);
+      ctx.ellipse(fx, fy, 8 + (i % 4), 2.4, 0, 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
   function drawGatbawi(clear) {
     const y0 = seaY();
-    const sharpness = 0.35 + clear * 0.65;
-    const baseX = state.w * 0.42;
-    const scale = Math.min(state.w, state.h) * 0.00115;
+    const sharpness = 0.4 + clear * 0.6;
+    // 화면 중앙의 주인공
+    const baseX = state.w * 0.58;
+    const baseY = y0 + state.h * 0.12;
+    const scale = Math.min(state.w, state.h) * 0.00185;
 
     function rock(ox, oy, s, lean) {
       ctx.save();
@@ -321,7 +330,6 @@
       ctx.scale(s, s);
       ctx.rotate(lean);
 
-      // body
       const body = ctx.createLinearGradient(0, -120, 0, 80);
       body.addColorStop(0, `rgba(${90 + clear * 40},${88 + clear * 30},${82 + clear * 20},${sharpness})`);
       body.addColorStop(0.45, `rgba(${70 + clear * 25},${68 + clear * 20},${62},${sharpness})`);
@@ -335,7 +343,6 @@
       ctx.closePath();
       ctx.fill();
 
-      // hat brim (갓)
       ctx.fillStyle = `rgba(${55 + clear * 35},${58 + clear * 25},${55},${sharpness})`;
       ctx.beginPath();
       ctx.ellipse(0, -62, 78, 18, 0, 0, Math.PI * 2);
@@ -346,7 +353,6 @@
       ctx.closePath();
       ctx.fill();
 
-      // honeycomb weathering
       ctx.fillStyle = `rgba(30, 28, 26, ${0.18 * sharpness})`;
       for (let i = 0; i < 18; i += 1) {
         const hx = -25 + (i % 6) * 10;
@@ -359,85 +365,74 @@
       ctx.restore();
     }
 
-    // Reflection
+    // 수면 반사
     ctx.save();
-    ctx.globalAlpha = 0.18 + clear * 0.12;
-    ctx.translate(0, y0 * 2 + 40);
-    ctx.scale(1, -0.35);
-    rock(baseX - 55 * scale * 90, y0 + 20, scale * 90, -0.05);
-    rock(baseX + 70 * scale * 80, y0 + 28, scale * 78, 0.06);
+    ctx.globalAlpha = 0.22 + clear * 0.16;
+    ctx.translate(0, baseY * 2 + 10);
+    ctx.scale(1, -0.42);
+    rock(baseX - 48, baseY, scale * 100, -0.05);
+    rock(baseX + 72, baseY + 10, scale * 82, 0.06);
     ctx.restore();
 
-    // Father rock / son rock
-    rock(baseX - 36, y0 + 8, scale * 95, -0.04);
-    rock(baseX + 58, y0 + 18, scale * 78, 0.05);
+    // 아버지바위 / 아들바위
+    rock(baseX - 42, baseY, scale * 108, -0.04);
+    rock(baseX + 78, baseY + 14, scale * 88, 0.05);
 
-    // Soft mist on rocks when rainy
     if (clear < 0.7) {
       const mist = 1 - clear;
-      const g = ctx.createRadialGradient(baseX, y0 - 40, 10, baseX, y0 - 20, 180);
-      g.addColorStop(0, `rgba(170,180,190,${0.35 * mist})`);
+      const g = ctx.createRadialGradient(baseX, baseY - 50, 20, baseX, baseY - 20, 260);
+      g.addColorStop(0, `rgba(170,180,190,${0.4 * mist})`);
       g.addColorStop(1, "rgba(170,180,190,0)");
       ctx.fillStyle = g;
-      ctx.fillRect(baseX - 200, y0 - 160, 400, 220);
+      ctx.fillRect(baseX - 280, baseY - 220, 560, 300);
     }
   }
 
   function drawDeck(clear) {
-    const samples = 48;
+    // 보행교는 왼쪽 가장자리의 얇은 보조 실루엣
+    const samples = 36;
     const pts = [];
     for (let i = 0; i <= samples; i += 1) pts.push(deckPath(i / samples));
+    const fade = 0.28 + clear * 0.35;
 
-    // pillars into water
-    ctx.strokeStyle = `rgba(50, 42, 36, ${0.35 + clear * 0.35})`;
-    ctx.lineWidth = 2;
-    for (let i = 2; i < samples; i += 4) {
+    ctx.save();
+    ctx.globalAlpha = fade;
+
+    ctx.strokeStyle = "rgba(50, 42, 36, 0.55)";
+    ctx.lineWidth = 1.2;
+    for (let i = 2; i < samples; i += 5) {
       const p = pts[i];
       ctx.beginPath();
-      ctx.moveTo(p.x, p.y + 6);
-      ctx.lineTo(p.x, p.y + 38 + Math.sin(i + state.t) * 2);
+      ctx.moveTo(p.x, p.y + 3);
+      ctx.lineTo(p.x, p.y + 22 + Math.sin(i + state.t) * 1.5);
       ctx.stroke();
     }
 
-    // boardwalk body
     ctx.beginPath();
-    ctx.moveTo(pts[0].x, pts[0].y - 5);
-    for (let i = 1; i < pts.length; i += 1) ctx.lineTo(pts[i].x, pts[i].y - 5);
-    for (let i = pts.length - 1; i >= 0; i -= 1) ctx.lineTo(pts[i].x, pts[i].y + 7);
+    ctx.moveTo(pts[0].x, pts[0].y - 3);
+    for (let i = 1; i < pts.length; i += 1) ctx.lineTo(pts[i].x, pts[i].y - 3);
+    for (let i = pts.length - 1; i >= 0; i -= 1) ctx.lineTo(pts[i].x, pts[i].y + 4);
     ctx.closePath();
-    const wood = ctx.createLinearGradient(0, pts[0].y - 20, 0, pts[0].y + 20);
-    wood.addColorStop(0, `rgba(${120 + clear * 40},${96 + clear * 30},${72},${0.55 + clear * 0.4})`);
-    wood.addColorStop(1, `rgba(${70 + clear * 20},${58 + clear * 15},${46},${0.55 + clear * 0.4})`);
-    ctx.fillStyle = wood;
+    ctx.fillStyle = `rgba(${100 + clear * 30},${82 + clear * 20},${62},0.85)`;
     ctx.fill();
 
-    // railing
-    ctx.strokeStyle = `rgba(200, 205, 210, ${0.35 + clear * 0.5})`;
-    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = `rgba(200, 205, 210, ${0.45 + clear * 0.35})`;
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(pts[0].x, pts[0].y - 14);
-    for (let i = 1; i < pts.length; i += 1) ctx.lineTo(pts[i].x, pts[i].y - 14);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(pts[0].x, pts[0].y - 4);
-    for (let i = 1; i < pts.length; i += 1) ctx.lineTo(pts[i].x, pts[i].y - 4);
+    ctx.moveTo(pts[0].x, pts[0].y - 9);
+    for (let i = 1; i < pts.length; i += 1) ctx.lineTo(pts[i].x, pts[i].y - 9);
     ctx.stroke();
 
-    for (let i = 0; i < samples; i += 3) {
-      const p = pts[i];
-      ctx.beginPath();
-      ctx.moveTo(p.x, p.y - 14);
-      ctx.lineTo(p.x, p.y + 5);
-      ctx.stroke();
-    }
+    ctx.restore();
   }
 
   function drawPerson(p, umbrella, alpha) {
     const pos = deckPath(p.x);
-    const bob = Math.sin(state.t * 8 + p.phase) * 1.2;
+    const bob = Math.sin(state.t * 8 + p.phase) * 0.8;
     const x = pos.x;
-    const y = pos.y - 8 + bob;
-    const s = p.scale * (state.h / 900);
+    const y = pos.y - 5 + bob;
+    // 보행교가 보조이므로 사람은 더 작게
+    const s = p.scale * (state.h / 1400) * 0.72;
 
     ctx.save();
     ctx.translate(x, y);
@@ -638,9 +633,9 @@
     drawCity(clear);
     drawClouds(clear);
     drawSea(clear);
-    drawGatbawi(clear);
     drawDeck(clear);
     drawPeople(clear);
+    drawGatbawi(clear);
     drawRain(clear);
     drawCursor();
     updateUi(clear);
