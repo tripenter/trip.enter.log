@@ -25,8 +25,6 @@
     wipeTrail: [],
     ready: false,
     cloudsWereHeavy: true,
-    coverBaseW: null,
-    coverBaseH: null,
   };
 
   const rainImg = new Image();
@@ -346,20 +344,12 @@
 
   /**
    * cover-fit + 가로 비대칭 크롭.
-   * 창이 줄어든 만큼(가장 넓었던 너비 대비) 왼쪽을 최대 170px까지 자르고,
-   * 나머지 가로 잘림은 오른쪽에서 가져온다. 세로는 중앙.
+   * 이미지 세로맞춤 너비(fitW)보다 화면이 좁으면(로딩·리사이즈 공통)
+   * 왼쪽을 최대 170px까지 자르고, 나머지 가로 잘림은 오른쪽에서 가져온다. 세로는 중앙.
    */
   function coverRect(img) {
     const iw = img.naturalWidth || 1;
     const ih = img.naturalHeight || 1;
-
-    if (state.coverBaseH !== state.h) {
-      state.coverBaseH = state.h;
-      state.coverBaseW = state.w;
-    }
-    if (state.coverBaseW == null || state.w > state.coverBaseW) {
-      state.coverBaseW = state.w;
-    }
 
     const scaleH = state.h / ih;
     const fitW = iw * scaleH;
@@ -372,16 +362,16 @@
       dw = state.w;
       dh = ih * scale;
     } else {
-      // 좁아질 때 이미지를 축소하지 않고 가로 클립
+      // 좁을 때 이미지를 축소하지 않고 가로 클립
       scale = scaleH;
       dw = fitW;
       dh = state.h;
     }
 
     const overflowX = Math.max(0, dw - state.w);
-    // 창을 줄인 만큼만 왼쪽 크롭이 0→170으로 늘어남 (처음부터 고정 금지)
-    const shrunk = Math.max(0, state.coverBaseW - state.w);
-    const leftCrop = Math.min(170, shrunk, overflowX);
+    // fitW 대비 좁은 만큼 왼쪽 크롭 (페이지 로드 시에도 동일)
+    const narrowBy = Math.max(0, fitW - state.w);
+    const leftCrop = Math.min(170, narrowBy, overflowX);
     const rightCrop = Math.max(0, overflowX - leftCrop);
 
     // 소스 좌표로 크롭 (dx 음수보다 확실함)
