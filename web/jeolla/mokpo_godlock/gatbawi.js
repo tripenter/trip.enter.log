@@ -627,7 +627,9 @@
         hole = Math.max(hole, clamp(1 - Math.hypot(dx, dy) / 0.24, 0, 1) * w.life);
       }
 
-      const alpha = dens * c.soft * (1 - hole * 0.97) * (1 - clear * 0.25);
+      let alpha = dens * c.soft * (1 - hole * 0.97) * (1 - clear * 0.25);
+      // 구름영역 하단 30%는 투명도 20%
+      if (c.y >= bottomY0) alpha *= 0.2;
       if (alpha < 0.02) continue;
 
       ctx.save();
