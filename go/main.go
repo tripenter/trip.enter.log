@@ -4,12 +4,30 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"tripREST/config"
 	"tripREST/controller"
 
 	"github.com/gin-gonic/gin"
 )
+
+func resolveWebRoot() string {
+	candidates := []string{".", "../web", "web"}
+	for _, c := range candidates {
+		index := filepath.Join(c, "index.html")
+		if st, err := os.Stat(index); err == nil && !st.IsDir() {
+			abs, err := filepath.Abs(c)
+			if err == nil {
+				return abs
+			}
+			return c
+		}
+	}
+	return ""
+}
 
 func main() {
 	// 설정 파일 로드 (APP_DEBUG 미설정/true → debug DB, APP_DEBUG=false → 배포 DB)
@@ -39,6 +57,25 @@ func main() {
 	})
 
 	r.POST("/rest/get/menu", controller.GetMenu)
+
+	// 로컬·배포 공통: web 정적 파일 (배포 시 cwd에 index.html, 로컬은 ../web)
+	if webRoot := resolveWebRoot(); webRoot != "" {
+		log.Printf("정적 웹 루트: %s", webRoot)
+		fileServer := http.FileServer(http.Dir(webRoot))
+		r.NoRoute(func(c *gin.Context) {
+			if c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead {
+				c.Status(http.StatusNotFound)
+				return
+			}
+			if strings.HasPrefix(c.Request.URL.Path, "/rest/") {
+				c.Status(http.StatusNotFound)
+				return
+			}
+			fileServer.ServeHTTP(c.Writer, c.Request)
+		})
+	} else {
+		log.Printf("정적 웹 루트를 찾지 못했습니다 (index.html 없음)")
+	}
 
 	// dev_secret/config.json의 server.port (기본값 10000) 설정 적용
 	port := cfg.Server.Port
