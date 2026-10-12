@@ -578,18 +578,32 @@
     ctx.restore();
   }
 
+  /** 구름 크기 기준 너비 — 화면이 줄어도 배경 이미지 평면(fitW)만큼은 유지 */
+  function cloudRefWidth() {
+    const img =
+      rainImg.naturalWidth > 0
+        ? rainImg
+        : clearImg.naturalWidth > 0
+          ? clearImg
+          : null;
+    if (!img) return Math.max(1, state.w);
+    const plane = coverRect(img).planeDw;
+    return Math.max(state.w, plane || state.w);
+  }
+
   function drawClouds(clear) {
     const dens = 1 - clear * 0.95;
     if (dens < 0.02) return;
 
     const rockPx = state.w * ROCK_CLEAR_X;
     const span = 1.15 - ROCK_CLEAR_X;
+    const refW = cloudRefWidth();
 
     for (const c of clouds) {
       const drift = ((c.x - ROCK_CLEAR_X + state.t * c.drift * 0.015) % span + span) % span;
       let cx = (ROCK_CLEAR_X + drift) * state.w + 50;
       const cy = c.y * state.h;
-      const r = c.r * state.w;
+      const r = c.r * refW;
       const sprite = c.sprite;
       // 바위 여백을 먼저 맞춘 뒤, 왼쪽 이동을 나중에 적용해야 이동이 남는다
       const clearX = c.shiftTop20 ? Math.max(0, rockPx - 30) : rockPx;
