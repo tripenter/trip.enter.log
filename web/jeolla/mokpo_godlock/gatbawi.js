@@ -603,6 +603,7 @@
     const { refW, leftCrop } = cloudCoverMetrics();
     // 왼쪽 크롭 0→170px 에 비례해, 구름영역 아래 30%는 최대 30px 오른쪽
     const cropT = clamp(leftCrop / 170, 0, 1);
+    const midY0 = CLOUD_Y0 + CLOUD_YH * 0.4;
     const bottomY0 = CLOUD_Y0 + CLOUD_YH * 0.7;
 
     for (const c of clouds) {
@@ -628,8 +629,10 @@
       }
 
       let alpha = dens * c.soft * (1 - hole * 0.97) * (1 - clear * 0.25);
-      // 구름영역 하단 30%는 투명도 20%
+      // 상단 40% → 40%, 가운데 30% → 30%, 하단 30% → 20%
       if (c.y >= bottomY0) alpha *= 0.2;
+      else if (c.y >= midY0) alpha *= 0.3;
+      else alpha *= 0.4;
       if (alpha < 0.02) continue;
 
       ctx.save();
