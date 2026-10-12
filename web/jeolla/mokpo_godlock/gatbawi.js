@@ -578,17 +578,20 @@
     ctx.restore();
   }
 
-  /** 구름 크기 기준 너비 — 화면이 줄어도 배경 이미지 평면(fitW)만큼은 유지 */
-  function cloudRefWidth() {
+  /** 구름 크기·왼쪽 크롭 — 화면이 줄어도 이미지 평면(fitW) 기준 유지 */
+  function cloudCoverMetrics() {
     const img =
       rainImg.naturalWidth > 0
         ? rainImg
         : clearImg.naturalWidth > 0
           ? clearImg
           : null;
-    if (!img) return Math.max(1, state.w);
-    const plane = coverRect(img).planeDw;
-    return Math.max(state.w, plane || state.w);
+    if (!img) return { refW: Math.max(1, state.w), leftCrop: 0 };
+    const cover = coverRect(img);
+    return {
+      refW: Math.max(state.w, cover.planeDw || state.w),
+      leftCrop: cover.leftCrop || 0,
+    };
   }
 
   function drawClouds(clear) {
@@ -597,7 +600,10 @@
 
     const rockPx = state.w * ROCK_CLEAR_X;
     const span = 1.15 - ROCK_CLEAR_X;
-    const refW = cloudRefWidth();
+    const { refW, leftCrop } = cloudCoverMetrics();
+    // 왼쪽 크롭 0→170px 에 비례해, 구름영역 아래 30%는 최대 30px 오른쪽
+    const cropT = clamp(leftCrop / 170, 0, 1);
+    const bottomY0 = CLOUD_Y0 + CLOUD_YH * 0.7;
 
     for (const c of clouds) {
       const drift = ((c.x - ROCK_CLEAR_X + state.t * c.drift * 0.015) % span + span) % span;
@@ -612,6 +618,7 @@
       if (c.shiftTop40) cx -= 50;
       if (c.shiftTop30) cx -= 40;
       if (c.shiftTop10) cx -= 20;
+      if (c.y >= bottomY0) cx += 30 * cropT;
 
       let hole = 0;
       for (const w of state.wipeTrail) {
