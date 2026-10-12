@@ -25,6 +25,8 @@
     wipeTrail: [],
     ready: false,
     cloudsWereHeavy: true,
+    coverBaseW: null,
+    coverBaseH: null,
   };
 
   const rainImg = new Image();
@@ -282,7 +284,9 @@
   function personScreenPos(p) {
     const pos = deckPath(p.u);
     const bob = Math.sin(state.t * 7.5 + p.phase) * 0.9;
-    return { x: pos.x, y: pos.y - 6 + bob, s: personScale(p) };
+    // 왼쪽 출발 구간(u≈0)에서 추가로 왼쪽으로 — 끝점만 확실히 밀기
+    const leftNudge = p.u < 0.25 ? 60 * (1 - p.u / 0.25) : 0;
+    return { x: pos.x - leftNudge, y: pos.y - 6 + bob, s: personScale(p) };
   }
 
   function visiblePeople(clear) {
@@ -340,19 +344,68 @@
     return a + (b - a) * t;
   }
 
-  /** cover-fit draw rect for an image into canvas */
+  /**
+   * cover-fit + 가로 비대칭 크롭.
+   * 창이 줄어든 만큼(가장 넓었던 너비 대비) 왼쪽을 최대 170px까지 자르고,
+   * 나머지 가로 잘림은 오른쪽에서 가져온다. 세로는 중앙.
+   */
   function coverRect(img) {
     const iw = img.naturalWidth || 1;
     const ih = img.naturalHeight || 1;
-    const scale = Math.max(state.w / iw, state.h / ih);
-    const dw = iw * scale;
-    const dh = ih * scale;
+
+    if (state.coverBaseH !== state.h) {
+      state.coverBaseH = state.h;
+      state.coverBaseW = state.w;
+    }
+    if (state.coverBaseW == null || state.w > state.coverBaseW) {
+      state.coverBaseW = state.w;
+    }
+
+    const scaleH = state.h / ih;
+    const fitW = iw * scaleH;
+    let scale;
+    let dw;
+    let dh;
+
+    if (state.w >= fitW) {
+      scale = state.w / iw;
+      dw = state.w;
+      dh = ih * scale;
+    } else {
+      // 좁아질 때 이미지를 축소하지 않고 가로 클립
+      scale = scaleH;
+      dw = fitW;
+      dh = state.h;
+    }
+
+    const overflowX = Math.max(0, dw - state.w);
+    // 창을 줄인 만큼만 왼쪽 크롭이 0→170으로 늘어남 (처음부터 고정 금지)
+    const shrunk = Math.max(0, state.coverBaseW - state.w);
+    const leftCrop = Math.min(170, shrunk, overflowX);
+    const rightCrop = Math.max(0, overflowX - leftCrop);
+
+    // 소스 좌표로 크롭 (dx 음수보다 확실함)
+    const sy = Math.max(0, ((dh - state.h) / 2) / scale);
+    const sh = Math.min(ih - sy, state.h / scale);
+    const sx = leftCrop / scale;
+    const sw = Math.max(1, iw - sx - rightCrop / scale);
+
     return {
-      dx: (state.w - dw) / 2,
-      dy: (state.h - dh) / 2,
-      dw,
-      dh,
+      dx: 0,
+      dy: 0,
+      dw: state.w,
+      dh: state.h,
       scale,
+      sx,
+      sy,
+      sw,
+      sh,
+      leftCrop,
+      // 동선용: 잘리기 전 이미지 평면에서의 위치
+      planeDx: -leftCrop,
+      planeDy: (state.h - dh) / 2,
+      planeDw: dw,
+      planeDh: dh,
     };
   }
 
@@ -360,16 +413,48 @@
     return state.h * 0.42;
   }
 
-  /** 사진 속 보행교 대략 경로 (정규화 u: 0→1, 시작은 왼쪽 28%, 끝은 40px 아래) */
+  /** 보행교 시작 UV — 갓바위(왼쪽) 오른쪽, 다리 위 (0.4에서 왼쪽으로 ~30px) */
+  const DECK_U0 = 0.37;
+  const DECK_U1 = 1.0;
+
+  /**
+   * 사진(cover-fit) 기준 보행교 경로.
+   * 왼쪽 끝은 바위와 겹치지 않게 DECK_U0부터.
+   */
   function deckPath(u) {
-    const x = lerp(state.w * 0.28, state.w, u);
+    const img =
+      rainImg.naturalWidth > 0
+        ? rainImg
+        : clearImg.naturalWidth > 0
+          ? clearImg
+          : { naturalWidth: 1024, naturalHeight: 531 };
+    const r = coverRect(img);
+    const leftCrop = r.leftCrop || 0;
+    const toScreenX = (uv) => uv * r.planeDw - leftCrop;
+    const x0 = toScreenX(DECK_U0);
+    const x1 = toScreenX(DECK_U1);
+    const y0 = r.planeDy + r.planeDh * 0.735;
+    const y1 = r.planeDy + r.planeDh * 0.8;
+    const x = lerp(x0, x1, u);
     const y =
-      state.h * 0.72 +
-      Math.sin(u * Math.PI * 0.9) * state.h * 0.02 -
-      u * state.h * 0.01 +
-      7 +
-      u * 40;
+      lerp(y0, y1, u) +
+      Math.sin(u * Math.PI * 0.9) * r.planeDh * 0.012 -
+      u * r.planeDh * 0.006;
     return { x, y };
+  }
+
+  function stepPerson(p) {
+    p.u += p.dir * p.speed * 0.016;
+    // 바위 쪽으로 u<0 들어가지 않게 끝에서 바로 반대편으로
+    if (p.u >= 1) {
+      p.u = 0;
+      p.dir = 1;
+      p.bubble = null;
+    } else if (p.u <= 0) {
+      p.u = 1;
+      p.dir = -1;
+      p.bubble = null;
+    }
   }
 
   function resize() {
@@ -429,7 +514,7 @@
 
     if (rainOk) {
       const r = coverRect(rainImg);
-      ctx.drawImage(rainImg, r.dx, r.dy, r.dw, r.dh);
+      ctx.drawImage(rainImg, r.sx, r.sy, r.sw, r.sh, r.dx, r.dy, r.dw, r.dh);
     } else {
       ctx.fillStyle = "#5a6670";
       ctx.fillRect(0, 0, state.w, state.h);
@@ -441,7 +526,7 @@
       ctx.save();
       ctx.globalAlpha = clear;
       ctx.filter = `saturate(${1 + clear * 0.45}) brightness(${1 + clear * 0.12}) contrast(${1 + clear * 0.08})`;
-      ctx.drawImage(clearImg, r.dx, r.dy, r.dw, r.dh);
+      ctx.drawImage(clearImg, r.sx, r.sy, r.sw, r.sh, r.dx, r.dy, r.dw, r.dh);
       ctx.restore();
     }
 
@@ -725,17 +810,7 @@
       const alpha = clamp(1 - (clear - 0.35) / 0.4, 0, 1);
       for (let i = 0; i < rainCount; i += 1) {
         const p = rainyPeople[i];
-        p.u += p.dir * p.speed * 0.016;
-        if (p.u > 1.02) {
-          p.u = -0.02;
-          p.dir = 1;
-          p.bubble = null;
-        }
-        if (p.u < -0.02) {
-          p.u = 1.02;
-          p.dir = -1;
-          p.bubble = null;
-        }
+        stepPerson(p);
         drawPerson(p, true, alpha);
       }
     }
@@ -744,17 +819,7 @@
       const alpha = clamp((clear - 0.28) / 0.45, 0, 1);
       for (let i = 0; i < clearCount; i += 1) {
         const p = clearPeople[i];
-        p.u += p.dir * p.speed * 0.016;
-        if (p.u > 1.02) {
-          p.u = -0.02;
-          p.dir = 1;
-          p.bubble = null;
-        }
-        if (p.u < -0.02) {
-          p.u = 1.02;
-          p.dir = -1;
-          p.bubble = null;
-        }
+        stepPerson(p);
         drawPerson(p, false, alpha);
       }
     }
