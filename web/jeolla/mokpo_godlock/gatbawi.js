@@ -8,6 +8,7 @@
 
   const ctx = canvas.getContext("2d", { alpha: false });
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const touchUi = window.matchMedia("(hover: none)").matches;
 
   const IMG_RAIN = "../../img/gatbawi-rain.jpg";
   const IMG_CLEAR = "../../img/gatbawi-clear.jpg";
@@ -19,6 +20,10 @@
     t: 0,
     clear: 0,
     targetClear: 0,
+    // 0=왼쪽 풍경, 1=오른쪽 풍경 (가로 패닝)
+    pan: 0,
+    targetPan: 0,
+    hasPanned: false,
     mx: 0.5,
     my: 0.3,
     hasPointer: false,
@@ -369,9 +374,8 @@
     }
 
     const overflowX = Math.max(0, dw - state.w);
-    // fitW 대비 좁은 만큼 왼쪽 크롭 (페이지 로드 시에도 동일)
-    const narrowBy = Math.max(0, fitW - state.w);
-    const leftCrop = Math.min(170, narrowBy, overflowX);
+    // pan 0→왼쪽, 1→오른쪽. 좌우 드래그로 크롭 위치를 옮긴다.
+    const leftCrop = overflowX * clamp(state.pan, 0, 1);
     const rightCrop = Math.max(0, overflowX - leftCrop);
 
     // 소스 좌표로 크롭 (dx 음수보다 확실함)
@@ -391,12 +395,33 @@
       sw,
       sh,
       leftCrop,
+      overflowX,
       // 동선용: 잘리기 전 이미지 평면에서의 위치
       planeDx: -leftCrop,
       planeDy: (state.h - dh) / 2,
       planeDw: dw,
       planeDh: dh,
     };
+  }
+
+  /** 예전 고정 크롭(왼쪽 최대 170px)에 가깝게 초기 패닝을 잡는다. */
+  function defaultPan() {
+    const img =
+      rainImg.naturalWidth > 0
+        ? rainImg
+        : clearImg.naturalWidth > 0
+          ? clearImg
+          : null;
+    if (!img || state.w <= 0 || state.h <= 0) return 0;
+    const iw = img.naturalWidth || 1;
+    const ih = img.naturalHeight || 1;
+    const scaleH = state.h / ih;
+    const fitW = iw * scaleH;
+    const scale = state.w >= fitW ? state.w / iw : scaleH;
+    const dw = iw * scale;
+    const overflowX = Math.max(0, dw - state.w);
+    if (overflowX <= 0) return 0;
+    return clamp(Math.min(170, overflowX) / overflowX, 0, 1);
   }
 
   function seaTop() {
@@ -460,6 +485,13 @@
 
     waveCanvas.width = state.w;
     waveCanvas.height = state.h;
+
+    // 아직 사용자가 패닝하지 않았다면 초기 구도를 유지한다.
+    if (!state.hasPanned) {
+      const p = defaultPan();
+      state.pan = p;
+      state.targetPan = p;
+    }
   }
 
   function wipeAt(nx, ny) {
@@ -469,16 +501,23 @@
     state.targetClear = clamp(state.targetClear + 0.014 * (0.4 + rainLeft), 0, 1);
   }
 
-  function onPointer(e) {
+  function applyInteraction(clientX, clientY, opts = {}) {
+    const { pan = true, wipe = true } = opts;
     const rect = canvas.getBoundingClientRect();
-    state.mx = (e.clientX - rect.left) / rect.width;
-    state.my = (e.clientY - rect.top) / rect.height;
+    const w = Math.max(1, rect.width);
+    const h = Math.max(1, rect.height);
+    state.mx = (clientX - rect.left) / w;
+    state.my = (clientY - rect.top) / h;
     state.hasPointer = true;
-    if (state.my < 0.55) wipeAt(state.mx, state.my);
+    if (pan) {
+      // 청령포와 같이 포인터 X로 좌우 시점을 옮긴다.
+      state.targetPan = clamp(state.mx, 0.02, 0.98);
+      state.hasPanned = true;
+    }
+    if (wipe && state.my < 0.55) wipeAt(state.mx, state.my);
   }
 
-  function onPointerDown(e) {
-    onPointer(e);
+  function tryPersonBubble() {
     const hit = hitPerson(state.mx, state.my);
     if (!hit) return;
     const rainyMood = hit.rainy || state.clear < 0.45;
@@ -488,15 +527,77 @@
     };
   }
 
-  canvas.addEventListener("pointermove", onPointer);
-  canvas.addEventListener("pointerdown", onPointerDown);
-  canvas.addEventListener(
-    "pointerleave",
-    () => {
-      state.hasPointer = false;
-    },
-    { passive: true }
-  );
+  let gesture = { active: false, axis: null, startX: 0, startY: 0 };
+
+  function resetGesture() {
+    gesture.active = false;
+    gesture.axis = null;
+    state.hasPointer = false;
+  }
+
+  if (touchUi) {
+    // 모바일: 세로는 네이티브 스크롤, 가로만 패닝·구름 쓸기
+    stage.addEventListener(
+      "touchstart",
+      (event) => {
+        const touch = event.changedTouches[0];
+        if (!touch) return;
+        gesture = {
+          active: true,
+          axis: null,
+          startX: touch.clientX,
+          startY: touch.clientY,
+        };
+        applyInteraction(touch.clientX, touch.clientY, { pan: false, wipe: false });
+        tryPersonBubble();
+      },
+      { passive: true }
+    );
+
+    stage.addEventListener(
+      "touchmove",
+      (event) => {
+        if (!gesture.active) return;
+        const touch = event.touches[0];
+        if (!touch) return;
+
+        if (!gesture.axis) {
+          const dx = touch.clientX - gesture.startX;
+          const dy = touch.clientY - gesture.startY;
+          if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+          gesture.axis = Math.abs(dx) >= Math.abs(dy) ? "x" : "y";
+        }
+
+        if (gesture.axis === "y") return;
+
+        event.preventDefault();
+        applyInteraction(touch.clientX, touch.clientY, { pan: true, wipe: true });
+      },
+      { passive: false }
+    );
+
+    stage.addEventListener("touchend", resetGesture, { passive: true });
+    stage.addEventListener("touchcancel", resetGesture, { passive: true });
+  } else {
+    function onPointer(e) {
+      applyInteraction(e.clientX, e.clientY, { pan: true, wipe: true });
+    }
+
+    function onPointerDown(e) {
+      onPointer(e);
+      tryPersonBubble();
+    }
+
+    canvas.addEventListener("pointermove", onPointer);
+    canvas.addEventListener("pointerdown", onPointerDown);
+    canvas.addEventListener(
+      "pointerleave",
+      () => {
+        state.hasPointer = false;
+      },
+      { passive: true }
+    );
+  }
 
   function drawPhotoBase(clear) {
     const rainOk = rainImg.complete && rainImg.naturalWidth > 0;
@@ -601,8 +702,8 @@
     const rockPx = state.w * ROCK_CLEAR_X;
     const span = 1.15 - ROCK_CLEAR_X;
     const { refW, leftCrop } = cloudCoverMetrics();
-    // 왼쪽 크롭 0→170px 에 비례해, 구름영역 아래 30%는 최대 30px 오른쪽
-    const cropT = clamp(leftCrop / 170, 0, 1);
+    // 왼쪽 크롭 비율에 비례해, 구름영역 아래 30%는 최대 30px 오른쪽
+    const cropT = clamp(leftCrop / Math.max(170, leftCrop, 1), 0, 1);
     const midY0 = CLOUD_Y0 + CLOUD_YH * 0.4;
     const bottomY0 = CLOUD_Y0 + CLOUD_YH * 0.7;
 
@@ -862,7 +963,9 @@
         hintEl.textContent = "비가 그쳤습니다 · 아래로 스크롤해 이야기를 읽어 보세요";
         hintEl.classList.add("is-done");
       } else {
-        hintEl.textContent = "마우스로 구름을 쓸어 걷어내 보세요";
+        hintEl.textContent = touchUi
+          ? "좌우로 밀며 구름을 쓸어 걷어내 보세요"
+          : "마우스로 구름을 쓸어 걷어내 보세요";
         hintEl.classList.remove("is-done");
       }
     }
@@ -872,6 +975,7 @@
     if (!state.ready) return;
     state.t = now * 0.001;
     state.clear = lerp(state.clear, state.targetClear, 0.055);
+    state.pan = lerp(state.pan, state.targetPan, reduceMotion ? 1 : 0.14);
     if (state.targetClear < 0.98) {
       state.targetClear = clamp(state.targetClear - 0.0007, 0, 1);
     }
