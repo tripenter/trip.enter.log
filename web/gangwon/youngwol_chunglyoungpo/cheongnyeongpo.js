@@ -7,6 +7,8 @@
   const airCanvas = stage.querySelector("[data-air]");
   const sceneEl = stage.querySelector("[data-scene]");
   const figureEl = stage.querySelector("[data-figure]");
+  const figureHitEl = figureEl.querySelector("[data-figure-hit]");
+  const figureBubbleEl = figureEl.querySelector("[data-figure-bubble]");
   const spotLayer = stage.querySelector("[data-hotspots]");
   const clockTimeEl = stage.querySelector("[data-clock-time]");
   const clockPhaseEl = stage.querySelector("[data-clock-phase]");
@@ -772,6 +774,90 @@
     return !!(event.target && event.target.closest && event.target.closest(".hotspot"));
   }
 
+  function isFigureTarget(event) {
+    return !!(event.target && event.target.closest && event.target.closest(".figure-hit"));
+  }
+
+  function isUiTarget(event) {
+    return isHotspotTarget(event) || isFigureTarget(event);
+  }
+
+  const DANJONG_LINES = [
+    "강바람이 차구나… 한양은 지금 어떤 밤일까.",
+    "솔숲 사이로 쓸쓸한 새소리가 들린다.",
+    "청령포의 물결이 내 발목을 붙잡는 듯하구나.",
+    "임금의 자리보다, 어머니의 품이 그립구나.",
+    "저 달은 궁궐 위에도 똑같이 떠 있겠지.",
+    "돌이 되어도 이곳을 지키라는 말이 귓가에 남는다.",
+    "자규야, 네 울음이 어찌 이리 슬프냐.",
+    "강 너머 길이 있어도… 나는 건너지 못하는구나.",
+    "신하들의 얼굴이 안개처럼 흐려진다.",
+    "오늘도 해는 지고, 나는 아직 여기 서 있다.",
+    "소나무 가지가 하늘을 가리키니, 마음이 더욱 멀어진다.",
+    "왕관보다 가벼운 것이 이 강바람이었구나.",
+    "밤이슬이 소매를 적시니, 눈물이라 해도 좋으리.",
+    "뱃사공의 노젓는 소리가 멀리서 잦아든다.",
+    "한 줌의 햇살에도 옛 궁궐의 뜰이 보인다.",
+    "유배라 부르지 말고, 잠시 머무름이라 해다오.",
+    "저 물결 위에 내 이름을 적어 흘려보내고 싶구나.",
+    "어린 임금이라 했지… 이제 나이는 강물처럼 흘렀다.",
+    "별을 세다 보면 고향의 창이 떠오른다.",
+    "누군가 나를 부르면, 대답하기 전에 망설여진다.",
+    "이 섬 같은 모래톱이 나의 온 세상이구나.",
+    "새벽에 피어난 안개가 내 기억을 감춘다.",
+    "충신의 말보다, 고요한 강이 더 솔직하구나.",
+    "옷깃을 여미니, 옛 예복의 무게가 생각난다.",
+    "나는 떠나지 않았다. 다만 남겨졌을 뿐.",
+    "파도가 바위를 깎듯, 세월이 나를 다듬는구나.",
+    "저 건너편에 희망이 있다면, 바람아 전해주렴.",
+    "단종이 아니라… 한 사람으로 서고 싶구나.",
+    "오늘 하루도, 이 강에게 말을 걸어본다.",
+    "발밑 모래가 따뜻하면, 잠시 웃을 수 있다.",
+  ];
+
+  let danjongLinePool = [];
+  let danjongBubbleTimer = 0;
+
+  function nextDanjongLine() {
+    if (!danjongLinePool.length) {
+      danjongLinePool = DANJONG_LINES.map((_, i) => i);
+      for (let i = danjongLinePool.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = danjongLinePool[i];
+        danjongLinePool[i] = danjongLinePool[j];
+        danjongLinePool[j] = tmp;
+      }
+    }
+    return DANJONG_LINES[danjongLinePool.pop()];
+  }
+
+  function hideDanjongBubble() {
+    window.clearTimeout(danjongBubbleTimer);
+    danjongBubbleTimer = 0;
+    if (!figureBubbleEl) return;
+    figureBubbleEl.hidden = true;
+    figureBubbleEl.textContent = "";
+  }
+
+  function showDanjongBubble() {
+    if (!figureBubbleEl) return;
+    window.clearTimeout(danjongBubbleTimer);
+    figureBubbleEl.hidden = true;
+    figureBubbleEl.textContent = nextDanjongLine();
+    // 재클릭 시 등장 애니메이션을 다시 재생한다.
+    void figureBubbleEl.offsetWidth;
+    figureBubbleEl.hidden = false;
+    figureBubbleEl.style.animation = "none";
+    void figureBubbleEl.offsetWidth;
+    figureBubbleEl.style.animation = "";
+    danjongBubbleTimer = window.setTimeout(hideDanjongBubble, 10000);
+  }
+
+  figureHitEl.addEventListener("click", (event) => {
+    event.stopPropagation();
+    showDanjongBubble();
+  });
+
   function resetGesture() {
     gesture.active = false;
     gesture.axis = null;
@@ -835,7 +921,7 @@
   }
 
   function onPointer(event) {
-    if (isHotspotTarget(event)) {
+    if (isUiTarget(event)) {
       lastMove.ok = false;
       return;
     }
@@ -846,7 +932,7 @@
     stage.addEventListener(
       "touchstart",
       (event) => {
-        if (isHotspotTarget(event)) {
+        if (isUiTarget(event)) {
           resetGesture();
           return;
         }
@@ -868,7 +954,7 @@
     stage.addEventListener(
       "touchmove",
       (event) => {
-        if (!gesture.active || isHotspotTarget(event)) return;
+        if (!gesture.active || isUiTarget(event)) return;
         const touch = event.touches[0];
         if (!touch) return;
 
@@ -896,7 +982,7 @@
   } else {
     stage.addEventListener("pointermove", onPointer);
     stage.addEventListener("pointerdown", (event) => {
-      if (isHotspotTarget(event)) {
+      if (isUiTarget(event)) {
         lastMove.ok = false;
         return;
       }
@@ -986,7 +1072,7 @@
     stage.addEventListener(
       "click",
       (event) => {
-        if (event.target.closest(".hotspot")) return;
+        if (event.target.closest(".hotspot, .figure-hit")) return;
         if (state.holdingLastCard) return;
         spotLayer.querySelectorAll(".hotspot.is-open").forEach((el) => {
           el.classList.remove("is-open");

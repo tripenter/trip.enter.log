@@ -9,7 +9,7 @@
       content="서강이 삼면을 감싼 영월 청령포. 마우스를 움직여 해를 띄우고, 물결을 일으키고, 단종의 흔적을 찾는 인터랙티브 미디어 아트."
     />
     <link rel="stylesheet" href="../../css/intro.css?v=navCount1" />
-    <link rel="stylesheet" href="./cheongnyeongpo.css?v=scrollNative1" />
+    <link rel="stylesheet" href="./cheongnyeongpo.css?v=bubbleUp70" />
   </head>
   <body>
     <header class="site-nav" role="banner">
@@ -34,11 +34,18 @@
 
         <canvas class="water-canvas" data-water aria-hidden="true"></canvas>
 
-        <div class="figure" data-figure aria-hidden="true">
-          <div class="figure-shadow"></div>
-          <img class="figure-art" src="../../img/danjong.png" alt="" />
-          <div class="figure-tint"></div>
-          <div class="figure-rim"></div>
+        <div class="figure" data-figure>
+          <div class="figure-shadow" aria-hidden="true"></div>
+          <img class="figure-art" src="../../img/danjong.png" alt="단종" />
+          <div class="figure-tint" aria-hidden="true"></div>
+          <div class="figure-rim" aria-hidden="true"></div>
+          <button
+            type="button"
+            class="figure-hit"
+            data-figure-hit
+            aria-label="단종에게 말을 걸어보세요"
+          ></button>
+          <div class="figure-bubble" data-figure-bubble hidden role="status" aria-live="polite"></div>
         </div>
 
         <canvas class="air-canvas" data-air aria-hidden="true"></canvas>
@@ -103,6 +110,6 @@
     </footer>
 
     <script src="../../js/menu.js?v=navCount2" defer></script>
-    <script src="./cheongnyeongpo.js?v=scrollNative1" defer></script>
+    <script src="./cheongnyeongpo.js?v=bubbleUp70" defer></script>
   </body>
 </html>

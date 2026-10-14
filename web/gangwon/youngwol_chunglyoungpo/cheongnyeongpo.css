@@ -37,7 +37,8 @@
   }
 
   .hotspot,
-  .hotspot-dot {
+  .hotspot-dot,
+  .figure-hit {
     touch-action: manipulation;
   }
 }
@@ -95,8 +96,10 @@
   bottom: 0;
   height: clamp(280px, 56vh, 620px);
   aspect-ratio: 864 / 906;
-  z-index: 4;
+  /* hotspots(8) 아래: 유적 포인트가 단종 박스와 겹쳐도 클릭 가능 */
+  z-index: 7;
   will-change: transform;
+  pointer-events: none;
 }
 
 .figure-art {
@@ -106,6 +109,73 @@
   height: 100%;
   filter: brightness(var(--art-bright, 1)) contrast(var(--art-contrast, 1))
     saturate(var(--art-sat, 1)) drop-shadow(0 6px 14px rgba(26, 36, 50, 0.22));
+  pointer-events: none;
+}
+
+/* 투명 PNG 박스 전체가 아니라 인물 몸통만 클릭되게 좁힌다 */
+.figure-hit {
+  position: absolute;
+  left: 52%;
+  top: 12%;
+  width: 40%;
+  height: 78%;
+  z-index: 3;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.figure-hit:focus-visible {
+  outline: 2px solid rgba(255, 220, 160, 0.85);
+  outline-offset: 4px;
+}
+
+.figure-bubble {
+  position: absolute;
+  left: 8%;
+  top: calc(6% - 70px);
+  z-index: 2;
+  max-width: min(220px, 72%);
+  padding: 0.55rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(255, 252, 248, 0.94);
+  border: 1px solid rgba(30, 40, 48, 0.22);
+  color: #1a242c;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: -0.02em;
+  box-shadow: 0 8px 22px rgba(20, 28, 40, 0.18);
+  pointer-events: none;
+  transform-origin: 70% 100%;
+  animation: figure-bubble-in 0.28s ease;
+}
+
+.figure-bubble::after {
+  content: "";
+  position: absolute;
+  right: 18%;
+  bottom: -7px;
+  width: 12px;
+  height: 12px;
+  background: rgba(255, 252, 248, 0.94);
+  border-right: 1px solid rgba(30, 40, 48, 0.22);
+  border-bottom: 1px solid rgba(30, 40, 48, 0.22);
+  transform: rotate(45deg);
+}
+
+@keyframes figure-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .figure-tint,
@@ -114,6 +184,7 @@
   inset: 0;
   mask: url("../../img/danjong-mask.png") center / 100% 100% no-repeat;
   -webkit-mask: url("../../img/danjong-mask.png") center / 100% 100% no-repeat;
+  pointer-events: none;
 }
 
 .figure-tint {
@@ -145,6 +216,7 @@
   transform: translate(-50%, -50%) translateX(var(--shadow-dx, 0px))
     scaleX(var(--shadow-sx, 1));
   filter: blur(3px);
+  pointer-events: none;
 }
 
 .air-canvas {
@@ -156,6 +228,8 @@
   inset: 0;
   z-index: 8;
   will-change: transform;
+  /* 빈 영역은 아래 레이어(단종·스테이지)로 클릭을 통과시킨다 */
+  pointer-events: none;
 }
 
 .hotspot {
@@ -171,6 +245,7 @@
   transition: transform 0.25s ease, background 0.25s ease, border-color 0.25s ease;
   /* 포인트 위에서는 브라우저/스테이지 제스처보다 탭을 우선한다. */
   touch-action: manipulation;
+  pointer-events: auto;
 }
 
 .hotspot-dot {
@@ -608,6 +683,14 @@
     right: -4vw;
   }
 
+  .figure-bubble {
+    left: 4%;
+    top: calc(2% - 70px);
+    max-width: min(180px, 78%);
+    font-size: 0.75rem;
+    padding: 0.45rem 0.6rem;
+  }
+
   .fact-row {
     grid-template-columns: 1fr;
     gap: 0.2rem;
@@ -616,6 +699,10 @@
 
 @media (prefers-reduced-motion: reduce) {
   .hotspot::after {
+    animation: none;
+  }
+
+  .figure-bubble {
     animation: none;
   }
 }
