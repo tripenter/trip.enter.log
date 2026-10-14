@@ -5,8 +5,18 @@
   overflow: hidden;
   background: #0b1430;
   cursor: crosshair;
-  touch-action: none;
+  /* 상하는 브라우저 네이티브 스크롤, 좌우만 JS 패닝 */
+  touch-action: pan-y;
   user-select: none;
+}
+
+.stage canvas,
+.stage .scene,
+.stage .figure,
+.stage .hotspots,
+.stage .stage-ui,
+.stage .reward {
+  touch-action: pan-y;
 }
 
 .stage canvas {
@@ -14,7 +24,22 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  touch-action: none;
+}
+
+/* 모바일: 상하는 브라우저 네이티브 스크롤, 좌우는 JS 패닝 */
+@media (hover: none) {
+  .stage,
+  .stage canvas,
+  .stage .scene,
+  .stage .figure,
+  .stage .hotspots {
+    touch-action: pan-y;
+  }
+
+  .hotspot,
+  .hotspot-dot {
+    touch-action: manipulation;
+  }
 }
 
 .sky-canvas {

@@ -765,68 +765,16 @@
   let pointerX = null;
   let pointerY = null;
   let lastMove = { x: 0, y: 0, ok: false };
-  // 모바일 제스처: 세로면 페이지 스크롤(직접 scrollBy), 가로면 장면 패닝
-  // scrollBy + clientY 는 스크롤 후 델타가 상쇄되어 너무 작게 움직이므로
-  // movementY 우선 + 배율/관성으로 네이티브에 가깝게 맞춘다.
-  const SCROLL_GAIN = 72;
-  let gesture = {
-    active: false,
-    axis: null,
-    pointerId: null,
-    startX: 0,
-    startY: 0,
-    lastY: 0,
-    lastScreenY: 0,
-    lastT: 0,
-    velocity: 0,
-  };
-  let scrollInertiaId = 0;
+  // 모바일: 세로는 touch-action:pan-y 네이티브 스크롤, 가로만 JS 패닝
+  let gesture = { active: false, axis: null, startX: 0, startY: 0 };
 
   function isHotspotTarget(event) {
     return !!(event.target && event.target.closest && event.target.closest(".hotspot"));
   }
 
-  function stopScrollInertia() {
-    if (scrollInertiaId) {
-      window.cancelAnimationFrame(scrollInertiaId);
-      scrollInertiaId = 0;
-    }
-  }
-
-  function startScrollInertia(initialVelocity) {
-    stopScrollInertia();
-    let v = initialVelocity;
-    if (Math.abs(v) < 0.4) return;
-    // 손가락을 떼도 잠시 미끄러지듯 이어지게 한다.
-    const tick = () => {
-      v *= 0.92;
-      if (Math.abs(v) < 0.35) {
-        scrollInertiaId = 0;
-        return;
-      }
-      window.scrollBy(0, v);
-      scrollInertiaId = window.requestAnimationFrame(tick);
-    };
-    scrollInertiaId = window.requestAnimationFrame(tick);
-  }
-
-  function resetGesture(event) {
-    if (
-      gesture.pointerId !== null &&
-      stage.hasPointerCapture &&
-      stage.hasPointerCapture(gesture.pointerId)
-    ) {
-      try {
-        stage.releasePointerCapture(gesture.pointerId);
-      } catch (_) {
-        /* ignore */
-      }
-    }
-    if (gesture.axis === "y") startScrollInertia(gesture.velocity);
+  function resetGesture() {
     gesture.active = false;
     gesture.axis = null;
-    gesture.pointerId = null;
-    gesture.velocity = 0;
     lastMove.ok = false;
   }
 
@@ -837,9 +785,13 @@
     };
   }
 
-  function stagePoint(event) {
+  function stagePointFromClient(clientX, clientY) {
     const box = stage.getBoundingClientRect();
-    return { x: event.clientX - box.left, y: event.clientY - box.top, w: box.width, h: box.height };
+    return { x: clientX - box.left, y: clientY - box.top, w: box.width, h: box.height };
+  }
+
+  function stagePoint(event) {
+    return stagePointFromClient(event.clientX, event.clientY);
   }
 
   function spawnWaterBurst(x, y) {
@@ -850,8 +802,7 @@
     window.setTimeout(() => spawnRipple(art.nx, art.ny, 0.3), 130);
   }
 
-  function applyStagePan(event) {
-    const { x, y, w, h } = stagePoint(event);
+  function applyStagePanAt(x, y, w, h) {
     if (x < 0 || y < 0 || x > w || y > h) return;
 
     if (lastMove.ok) {
@@ -878,6 +829,11 @@
     if (state.travel > 900) setHint(1, "강 위를 쓸어 물결을 일으켜 보세요");
   }
 
+  function applyStagePan(event) {
+    const { x, y, w, h } = stagePoint(event);
+    applyStagePanAt(x, y, w, h);
+  }
+
   function onPointer(event) {
     if (isHotspotTarget(event)) {
       lastMove.ok = false;
@@ -886,83 +842,57 @@
     applyStagePan(event);
   }
 
-  function onTouchPointerMove(event) {
-    if (!gesture.active || event.pointerId !== gesture.pointerId) return;
-    if (isHotspotTarget(event)) return;
-
-    if (!gesture.axis) {
-      const dx = event.clientX - gesture.startX;
-      const dy = event.clientY - gesture.startY;
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-      gesture.axis = Math.abs(dx) >= Math.abs(dy) ? "x" : "y";
-      // 페이지가 움직여도 이벤트가 끊기지 않도록 캡처한다.
-      try {
-        stage.setPointerCapture(event.pointerId);
-      } catch (_) {
-        /* ignore */
-      }
-      gesture.lastY = event.clientY;
-      gesture.lastScreenY = event.screenY;
-      gesture.lastT = event.timeStamp || performance.now();
-      gesture.velocity = 0;
-    }
-
-    if (gesture.axis === "y") {
-      // screenY/movementY 는 문서 스크롤에 영향받지 않아 clientY 상쇄를 피한다.
-      let rawDy = 0;
-      if (typeof event.movementY === "number" && event.movementY !== 0) {
-        rawDy = event.movementY;
-      } else if (typeof event.screenY === "number") {
-        rawDy = event.screenY - gesture.lastScreenY;
-      } else {
-        rawDy = event.clientY - gesture.lastY;
-      }
-      gesture.lastY = event.clientY;
-      gesture.lastScreenY = event.screenY;
-      const now = event.timeStamp || performance.now();
-      const dt = Math.max(8, now - (gesture.lastT || now));
-      gesture.lastT = now;
-      const scrollDy = -rawDy * SCROLL_GAIN;
-      if (scrollDy !== 0) {
-        window.scrollBy(0, scrollDy);
-        const instant = scrollDy / (dt / 16.67);
-        gesture.velocity = gesture.velocity * 0.65 + instant * 0.35;
-      }
-      lastMove.ok = false;
-      return;
-    }
-
-    applyStagePan(event);
-  }
-
   if (touchUi) {
-    stage.addEventListener("pointerdown", (event) => {
-      if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
-      if (isHotspotTarget(event)) {
-        resetGesture();
-        return;
-      }
-      stopScrollInertia();
-      gesture = {
-        active: true,
-        axis: null,
-        pointerId: event.pointerId,
-        startX: event.clientX,
-        startY: event.clientY,
-        lastY: event.clientY,
-        lastScreenY: event.screenY,
-        lastT: event.timeStamp || performance.now(),
-        velocity: 0,
-      };
-      const { x, y } = stagePoint(event);
-      spawnWaterBurst(x, y);
-    });
-    stage.addEventListener("pointermove", onTouchPointerMove);
-    stage.addEventListener("pointerup", resetGesture);
-    stage.addEventListener("pointercancel", (event) => {
-      gesture.velocity = 0;
-      resetGesture(event);
-    });
+    stage.addEventListener(
+      "touchstart",
+      (event) => {
+        if (isHotspotTarget(event)) {
+          resetGesture();
+          return;
+        }
+        const touch = event.changedTouches[0];
+        if (!touch) return;
+        gesture = {
+          active: true,
+          axis: null,
+          startX: touch.clientX,
+          startY: touch.clientY,
+        };
+        const { x, y } = stagePointFromClient(touch.clientX, touch.clientY);
+        spawnWaterBurst(x, y);
+      },
+      { passive: true }
+    );
+
+    // 가로 제스처일 때만 preventDefault 해서 세로 네이티브 스크롤을 살린다.
+    stage.addEventListener(
+      "touchmove",
+      (event) => {
+        if (!gesture.active || isHotspotTarget(event)) return;
+        const touch = event.touches[0];
+        if (!touch) return;
+
+        if (!gesture.axis) {
+          const dx = touch.clientX - gesture.startX;
+          const dy = touch.clientY - gesture.startY;
+          if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+          gesture.axis = Math.abs(dx) >= Math.abs(dy) ? "x" : "y";
+        }
+
+        if (gesture.axis === "y") {
+          lastMove.ok = false;
+          return;
+        }
+
+        event.preventDefault();
+        const { x, y, w, h } = stagePointFromClient(touch.clientX, touch.clientY);
+        applyStagePanAt(x, y, w, h);
+      },
+      { passive: false }
+    );
+
+    stage.addEventListener("touchend", resetGesture, { passive: true });
+    stage.addEventListener("touchcancel", resetGesture, { passive: true });
   } else {
     stage.addEventListener("pointermove", onPointer);
     stage.addEventListener("pointerdown", (event) => {
