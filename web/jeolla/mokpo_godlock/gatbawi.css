@@ -223,14 +223,20 @@
 }
 
 @media (max-width: 640px) {
+  /* 세로가 긴 화면에서도 날씨 미터는 오른쪽 상단에 고정 */
   .ui-meter {
-    position: static;
-    width: 100%;
-    margin-top: 1.25rem;
+    position: absolute;
+    top: 4.75rem;
+    right: 0.85rem;
+    left: auto;
+    width: min(10.5rem, 42vw);
+    margin: 0;
+    z-index: 3;
   }
 
-  .meter-label {
-    text-align: left;
+  .meter-label,
+  .rain-countdown {
+    text-align: right;
   }
 
   .scene-canvas {
