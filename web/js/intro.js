@@ -1,23 +1,76 @@
 (() => {
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  function spawnStars() {
-    const field = document.querySelector("[data-starfield]");
-    if (!field) return;
-    const count = window.innerWidth < 768 ? 18 : 28;
-    const frag = document.createDocumentFragment();
-    for (let i = 0; i < count; i += 1) {
-      const star = document.createElement("span");
-      star.className = "star";
-      star.style.left = `${8 + Math.random() * 84}%`;
-      star.style.top = `${8 + Math.random() * 55}%`;
-      star.style.width = `${6 + Math.random() * 10}px`;
-      star.style.height = star.style.width;
-      star.style.setProperty("--dur", `${4 + Math.random() * 4}s`);
-      star.style.animationDelay = `${Math.random() * 3}s`;
-      frag.appendChild(star);
+  const CODE_LINES = [
+    { html: `<span class="tok-cmt">// trip.enter — log a place as code</span>` },
+    { html: `<span class="tok-key">const</span> place = <span class="tok-fn">read</span>(<span class="tok-str">"yeongwol"</span>);` },
+    { html: `<span class="tok-key">await</span> place.<span class="tok-fn">walk</span>({ wind: <span class="tok-str">"west"</span> });` },
+    { html: `memory.<span class="tok-fn">push</span>({ air: place.air, light: place.light });` },
+    { html: `<span class="tok-key">export</span> <span class="tok-key">default</span> memory;` },
+  ];
+
+  function renderHeroCode() {
+    const pre = document.querySelector("[data-hero-code]");
+    const caret = document.querySelector("[data-hero-caret]");
+    if (!pre) return;
+
+    if (reduceMotion) {
+      pre.innerHTML = CODE_LINES.map((line, i) => `${i + 1}  ${line.html}`).join("\n");
+      if (caret) caret.style.opacity = "0";
+      return;
     }
-    field.appendChild(frag);
+
+    let lineIndex = 0;
+    let charIndex = 0;
+    const built = CODE_LINES.map(() => "");
+
+    const tick = () => {
+      if (lineIndex >= CODE_LINES.length) {
+        if (caret) positionCaret(pre, caret);
+        return;
+      }
+
+      const raw = CODE_LINES[lineIndex].html;
+      charIndex += 1;
+      // type by advancing through HTML string cautiously: reveal whole tokens in chunks
+      const step = Math.min(raw.length, charIndex + Math.floor(Math.random() * 3));
+      charIndex = step;
+      built[lineIndex] = raw.slice(0, charIndex);
+
+      pre.innerHTML = built
+        .map((line, i) => {
+          if (!line && i > lineIndex) return "";
+          const num = String(i + 1).padStart(2, " ");
+          return `<span class="code-row"><span class="tok-cmt">${num}</span>  ${line || ""}</span>`;
+        })
+        .filter(Boolean)
+        .join("\n");
+
+      if (caret) positionCaret(pre, caret);
+
+      if (charIndex >= raw.length) {
+        lineIndex += 1;
+        charIndex = 0;
+        window.setTimeout(tick, 220);
+      } else {
+        window.setTimeout(tick, 18 + Math.random() * 28);
+      }
+    };
+
+    window.setTimeout(tick, 280);
+  }
+
+  function positionCaret(pre, caret) {
+    const rows = pre.querySelectorAll(".code-row");
+    const last = rows[rows.length - 1];
+    const editor = pre.closest(".hero-editor");
+    if (!last || !editor) return;
+    const editorBox = editor.getBoundingClientRect();
+    const rowBox = last.getBoundingClientRect();
+    caret.style.opacity = "1";
+    caret.style.left = `${rowBox.right - editorBox.left + 4}px`;
+    caret.style.top = `${rowBox.top - editorBox.top + 2}px`;
+    caret.style.height = `${Math.max(14, rowBox.height * 0.85)}px`;
   }
 
   function revealHero() {
@@ -65,8 +118,14 @@
     });
   }
 
-  spawnStars();
+  renderHeroCode();
   revealHero();
   observeThemes();
   bindNavKeyboard();
+
+  window.addEventListener("resize", () => {
+    const pre = document.querySelector("[data-hero-code]");
+    const caret = document.querySelector("[data-hero-caret]");
+    if (pre && caret) positionCaret(pre, caret);
+  });
 })();
