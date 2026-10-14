@@ -765,12 +765,36 @@
   let pointerX = null;
   let pointerY = null;
   let lastMove = { x: 0, y: 0, ok: false };
-  // 모바일 제스처: 세로면 페이지 스크롤, 가로면 장면 패닝
-  let gesture = { active: false, axis: null, x: 0, y: 0 };
+  // 모바일 제스처: 세로면 페이지 스크롤(직접 scrollBy), 가로면 장면 패닝
+  let gesture = {
+    active: false,
+    axis: null,
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    lastY: 0,
+  };
 
-  function resetGesture() {
+  function isHotspotTarget(event) {
+    return !!(event.target && event.target.closest && event.target.closest(".hotspot"));
+  }
+
+  function resetGesture(event) {
+    if (
+      event &&
+      gesture.pointerId !== null &&
+      stage.hasPointerCapture &&
+      stage.hasPointerCapture(gesture.pointerId)
+    ) {
+      try {
+        stage.releasePointerCapture(gesture.pointerId);
+      } catch (_) {
+        /* ignore */
+      }
+    }
     gesture.active = false;
     gesture.axis = null;
+    gesture.pointerId = null;
     lastMove.ok = false;
   }
 
@@ -786,32 +810,15 @@
     return { x: event.clientX - box.left, y: event.clientY - box.top, w: box.width, h: box.height };
   }
 
-  function resolveTouchAxis(event) {
-    if (!touchUi || !gesture.active) return "x";
-    if (gesture.axis) return gesture.axis;
-    const dx = event.clientX - gesture.x;
-    const dy = event.clientY - gesture.y;
-    if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return null;
-    gesture.axis = Math.abs(dx) >= Math.abs(dy) ? "x" : "y";
-    return gesture.axis;
+  function spawnWaterBurst(x, y) {
+    const art = toArt(x, y);
+    if (!isWater(art.nx, art.ny)) return;
+    spawnRipple(art.nx, art.ny, 1);
+    spawnRipple(art.nx, art.ny, 0.55);
+    window.setTimeout(() => spawnRipple(art.nx, art.ny, 0.3), 130);
   }
 
-  function onPointer(event) {
-    // 설명 포인트 위에서는 좌우 패닝/시간 이동을 하지 않는다.
-    if (event.target && event.target.closest && event.target.closest(".hotspot")) {
-      lastMove.ok = false;
-      return;
-    }
-
-    const axis = resolveTouchAxis(event);
-    // 세로 드래그 중에는 장면 패닝을 하지 않아 페이지 스크롤이 자연스럽게 된다.
-    if (axis === "y") {
-      lastMove.ok = false;
-      return;
-    }
-    // 축이 정해지기 전에는 패닝을 보류한다(터치 시작 직후 흔들림 방지).
-    if (touchUi && axis === null && event.type === "pointermove") return;
-
+  function applyStagePan(event) {
     const { x, y, w, h } = stagePoint(event);
     if (x < 0 || y < 0 || x > w || y > h) return;
 
@@ -831,47 +838,87 @@
       lastMove = { x, y, ok: true };
     }
 
-    // 모바일은 가로 제스처로 확정된 뒤에만 시간/장면을 움직인다.
-    if (!touchUi || axis === "x") {
-      pointerX = x / w;
-      pointerY = y / h;
-      state.target = clamp(0.015 + (1 - pointerX) * 0.97, 0, 0.999);
-      state.auto = false;
-      state.idle = 0;
-    }
+    pointerX = x / w;
+    pointerY = y / h;
+    state.target = clamp(0.015 + (1 - pointerX) * 0.97, 0, 0.999);
+    state.auto = false;
+    state.idle = 0;
     if (state.travel > 900) setHint(1, "강 위를 쓸어 물결을 일으켜 보세요");
   }
 
-  stage.addEventListener("pointermove", onPointer);
-  stage.addEventListener("pointerdown", (event) => {
-    if (event.target && event.target.closest && event.target.closest(".hotspot")) {
-      resetGesture();
+  function onPointer(event) {
+    if (isHotspotTarget(event)) {
+      lastMove.ok = false;
       return;
     }
-    if (touchUi) {
-      gesture = { active: true, axis: null, x: event.clientX, y: event.clientY };
-      // 터치 시작 시에는 물결만 남기고, 패닝은 가로로 확정된 뒤에 한다.
-      const { x, y } = stagePoint(event);
-      const art = toArt(x, y);
-      if (isWater(art.nx, art.ny)) {
-        spawnRipple(art.nx, art.ny, 1);
-        spawnRipple(art.nx, art.ny, 0.55);
-        window.setTimeout(() => spawnRipple(art.nx, art.ny, 0.3), 130);
+    applyStagePan(event);
+  }
+
+  function onTouchPointerMove(event) {
+    if (!gesture.active || event.pointerId !== gesture.pointerId) return;
+    if (isHotspotTarget(event)) return;
+
+    if (!gesture.axis) {
+      const dx = event.clientX - gesture.startX;
+      const dy = event.clientY - gesture.startY;
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      gesture.axis = Math.abs(dx) >= Math.abs(dy) ? "x" : "y";
+      // 페이지가 움직여도 이벤트가 끊기지 않도록 캡처한다.
+      try {
+        stage.setPointerCapture(event.pointerId);
+      } catch (_) {
+        /* ignore */
       }
+      gesture.lastY = event.clientY;
+    }
+
+    if (gesture.axis === "y") {
+      const dy = event.clientY - gesture.lastY;
+      gesture.lastY = event.clientY;
+      if (dy !== 0) window.scrollBy(0, -dy);
+      lastMove.ok = false;
       return;
     }
-    onPointer(event);
-    const { x, y } = stagePoint(event);
-    const art = toArt(x, y);
-    if (isWater(art.nx, art.ny)) {
-      spawnRipple(art.nx, art.ny, 1);
-      spawnRipple(art.nx, art.ny, 0.55);
-      window.setTimeout(() => spawnRipple(art.nx, art.ny, 0.3), 130);
-    }
-  });
-  stage.addEventListener("pointerup", resetGesture);
-  stage.addEventListener("pointercancel", resetGesture);
-  stage.addEventListener("pointerleave", resetGesture);
+
+    applyStagePan(event);
+  }
+
+  if (touchUi) {
+    stage.addEventListener("pointerdown", (event) => {
+      if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
+      if (isHotspotTarget(event)) {
+        resetGesture();
+        return;
+      }
+      gesture = {
+        active: true,
+        axis: null,
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        lastY: event.clientY,
+      };
+      const { x, y } = stagePoint(event);
+      spawnWaterBurst(x, y);
+    });
+    stage.addEventListener("pointermove", onTouchPointerMove);
+    stage.addEventListener("pointerup", resetGesture);
+    stage.addEventListener("pointercancel", resetGesture);
+  } else {
+    stage.addEventListener("pointermove", onPointer);
+    stage.addEventListener("pointerdown", (event) => {
+      if (isHotspotTarget(event)) {
+        lastMove.ok = false;
+        return;
+      }
+      onPointer(event);
+      const { x, y } = stagePoint(event);
+      spawnWaterBurst(x, y);
+    });
+    stage.addEventListener("pointerleave", () => {
+      lastMove.ok = false;
+    });
+  }
 
   stage.addEventListener("keydown", (event) => {
     const step = event.shiftKey ? 0.08 : 0.025;
