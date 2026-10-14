@@ -75,6 +75,9 @@
   top: 5.5rem;
   right: 1.5rem;
   width: min(12rem, 36vw);
+  padding: 0.7rem 0.85rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.9);
 }
 
 .meter-label {
@@ -83,13 +86,13 @@
   font-size: 0.68rem;
   letter-spacing: 0.08em;
   text-align: right;
-  color: rgba(232, 238, 242, 0.75);
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .meter-track {
   height: 3px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.22);
   overflow: hidden;
 }
 
@@ -105,8 +108,8 @@
   text-align: right;
   font-size: 0.72rem;
   letter-spacing: 0.04em;
-  color: rgba(232, 238, 242, 0.78);
-  text-shadow: 0 1px 12px rgba(10, 18, 24, 0.5);
+  color: rgba(255, 255, 255, 0.86);
+  text-shadow: none;
 }
 
 .rain-countdown[hidden] {
