@@ -768,7 +768,7 @@
   // 모바일 제스처: 세로면 페이지 스크롤(직접 scrollBy), 가로면 장면 패닝
   // scrollBy + clientY 는 스크롤 후 델타가 상쇄되어 너무 작게 움직이므로
   // movementY 우선 + 배율/관성으로 네이티브에 가깝게 맞춘다.
-  const SCROLL_GAIN = 24;
+  const SCROLL_GAIN = 72;
   let gesture = {
     active: false,
     axis: null,
