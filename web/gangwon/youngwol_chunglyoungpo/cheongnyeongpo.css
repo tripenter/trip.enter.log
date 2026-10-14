@@ -9,6 +9,13 @@
   user-select: none;
 }
 
+/* 모바일: 상하 드래그는 페이지 스크롤, 좌우는 인터랙티브 패닝 */
+@media (hover: none) {
+  .stage {
+    touch-action: pan-y;
+  }
+}
+
 .stage canvas {
   position: absolute;
   inset: 0;

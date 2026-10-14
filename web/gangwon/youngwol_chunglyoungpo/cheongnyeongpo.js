@@ -765,6 +765,14 @@
   let pointerX = null;
   let pointerY = null;
   let lastMove = { x: 0, y: 0, ok: false };
+  // 모바일 제스처: 세로면 페이지 스크롤, 가로면 장면 패닝
+  let gesture = { active: false, axis: null, x: 0, y: 0 };
+
+  function resetGesture() {
+    gesture.active = false;
+    gesture.axis = null;
+    lastMove.ok = false;
+  }
 
   function toArt(x, y) {
     return {
@@ -778,12 +786,31 @@
     return { x: event.clientX - box.left, y: event.clientY - box.top, w: box.width, h: box.height };
   }
 
+  function resolveTouchAxis(event) {
+    if (!touchUi || !gesture.active) return "x";
+    if (gesture.axis) return gesture.axis;
+    const dx = event.clientX - gesture.x;
+    const dy = event.clientY - gesture.y;
+    if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return null;
+    gesture.axis = Math.abs(dx) >= Math.abs(dy) ? "x" : "y";
+    return gesture.axis;
+  }
+
   function onPointer(event) {
     // 설명 포인트 위에서는 좌우 패닝/시간 이동을 하지 않는다.
     if (event.target && event.target.closest && event.target.closest(".hotspot")) {
       lastMove.ok = false;
       return;
     }
+
+    const axis = resolveTouchAxis(event);
+    // 세로 드래그 중에는 장면 패닝을 하지 않아 페이지 스크롤이 자연스럽게 된다.
+    if (axis === "y") {
+      lastMove.ok = false;
+      return;
+    }
+    // 축이 정해지기 전에는 패닝을 보류한다(터치 시작 직후 흔들림 방지).
+    if (touchUi && axis === null && event.type === "pointermove") return;
 
     const { x, y, w, h } = stagePoint(event);
     if (x < 0 || y < 0 || x > w || y > h) return;
@@ -804,18 +831,33 @@
       lastMove = { x, y, ok: true };
     }
 
-    pointerX = x / w;
-    pointerY = y / h;
-    state.target = clamp(0.015 + (1 - pointerX) * 0.97, 0, 0.999);
-    state.auto = false;
-    state.idle = 0;
+    // 모바일은 가로 제스처로 확정된 뒤에만 시간/장면을 움직인다.
+    if (!touchUi || axis === "x") {
+      pointerX = x / w;
+      pointerY = y / h;
+      state.target = clamp(0.015 + (1 - pointerX) * 0.97, 0, 0.999);
+      state.auto = false;
+      state.idle = 0;
+    }
     if (state.travel > 900) setHint(1, "강 위를 쓸어 물결을 일으켜 보세요");
   }
 
   stage.addEventListener("pointermove", onPointer);
   stage.addEventListener("pointerdown", (event) => {
     if (event.target && event.target.closest && event.target.closest(".hotspot")) {
-      lastMove.ok = false;
+      resetGesture();
+      return;
+    }
+    if (touchUi) {
+      gesture = { active: true, axis: null, x: event.clientX, y: event.clientY };
+      // 터치 시작 시에는 물결만 남기고, 패닝은 가로로 확정된 뒤에 한다.
+      const { x, y } = stagePoint(event);
+      const art = toArt(x, y);
+      if (isWater(art.nx, art.ny)) {
+        spawnRipple(art.nx, art.ny, 1);
+        spawnRipple(art.nx, art.ny, 0.55);
+        window.setTimeout(() => spawnRipple(art.nx, art.ny, 0.3), 130);
+      }
       return;
     }
     onPointer(event);
@@ -827,9 +869,9 @@
       window.setTimeout(() => spawnRipple(art.nx, art.ny, 0.3), 130);
     }
   });
-  stage.addEventListener("pointerleave", () => {
-    lastMove.ok = false;
-  });
+  stage.addEventListener("pointerup", resetGesture);
+  stage.addEventListener("pointercancel", resetGesture);
+  stage.addEventListener("pointerleave", resetGesture);
 
   stage.addEventListener("keydown", (event) => {
     const step = event.shiftKey ? 0.08 : 0.025;
