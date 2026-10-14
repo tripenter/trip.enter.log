@@ -29,6 +29,7 @@
   }
 
   function childCountBadge(count) {
+    if (!count) return "";
     return `<span class="nav-count" aria-label="활성 하위 메뉴 ${count}개">${count}</span>`;
   }
 
