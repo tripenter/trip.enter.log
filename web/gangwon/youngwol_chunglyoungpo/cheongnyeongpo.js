@@ -375,26 +375,30 @@
   function complete() {
     if (state.completed) return;
     state.completed = true;
-    // 마지막 설명 패널을 먼저 보여 주고, 10초 뒤에 완료 패널을 연다.
-    state.holdingLastCard = true;
     setHint(4, "밤이 오면 강에 등불이 흐릅니다");
 
-    window.setTimeout(() => {
-      state.holdingLastCard = false;
-      state.rewardLock = true;
-      spotLayer.querySelectorAll(".hotspot.is-open").forEach((el) => {
-        el.classList.remove("is-open");
-      });
-      rewardEl.classList.add("is-shown");
+    // 일곱 자리를 모두 찾으면 안내 패널을 바로 보여 준다.
+    state.holdingLastCard = false;
+    state.rewardLock = true;
+    spotLayer.querySelectorAll(".hotspot.is-open").forEach((el) => {
+      el.classList.remove("is-open");
+    });
+    rewardEl.classList.add("is-shown");
 
+    // 5초 뒤 안내 패널을 닫고 아래 소개 섹션으로 스크롤한다.
+    window.setTimeout(() => {
+      rewardEl.classList.remove("is-shown");
+      const story = document.getElementById("place-story");
+      if (story) {
+        story.scrollIntoView({
+          behavior: reduceMotion ? "auto" : "smooth",
+          block: "start",
+        });
+      }
       window.setTimeout(() => {
-        rewardEl.classList.remove("is-shown");
-        // 페이드가 끝난 뒤 포인트 설명을 다시 허용한다.
-        window.setTimeout(() => {
-          state.rewardLock = false;
-        }, reduceMotion ? 0 : 1200);
-      }, 10000);
-    }, 10000);
+        state.rewardLock = false;
+      }, reduceMotion ? 0 : 1200);
+    }, 5000);
 
     if (reduceMotion) return;
     for (let i = 0; i < 20; i += 1) {
