@@ -19,6 +19,8 @@
   const water = waterCanvas.getContext("2d");
   const air = airCanvas.getContext("2d");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // hover가 없는 환경(모바일·터치)에서는 터치로만 설명 패널을 연다.
+  const touchUi = window.matchMedia("(hover: none)").matches;
 
   // 좌표는 모두 배경 원화(2560x970) 기준 0~1 비율이다.
   const ART = { w: 2560, h: 970 };
@@ -346,10 +348,21 @@
         el.classList.remove("is-open");
       };
 
-      el.addEventListener("pointerenter", showCard);
-      el.addEventListener("pointerleave", hideCard);
-      dot.addEventListener("focus", showCard);
-      dot.addEventListener("blur", hideCard);
+      if (touchUi) {
+        // 모바일: 터치(탭)로 열고, 같은 포인트를 다시 탭하면 닫는다.
+        dot.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (el.classList.contains("is-open")) hideCard();
+          else showCard();
+        });
+      } else {
+        // PC: 기존처럼 마우스 오버/포커스로 표시한다.
+        el.addEventListener("pointerenter", showCard);
+        el.addEventListener("pointerleave", hideCard);
+        dot.addEventListener("focus", showCard);
+        dot.addEventListener("blur", hideCard);
+      }
 
       el.append(dot, card);
       frag.appendChild(el);
@@ -866,6 +879,22 @@
 
   buildSpots();
   resize();
+
+  if (touchUi) {
+    // 모바일: 포인트 밖을 탭하면 열린 설명 패널을 닫는다.
+    stage.addEventListener(
+      "click",
+      (event) => {
+        if (event.target.closest(".hotspot")) return;
+        if (state.holdingLastCard) return;
+        spotLayer.querySelectorAll(".hotspot.is-open").forEach((el) => {
+          el.classList.remove("is-open");
+        });
+      },
+      true
+    );
+  }
+
   if (reduceMotion) {
     state.p = 0.45;
     state.target = 0.45;
