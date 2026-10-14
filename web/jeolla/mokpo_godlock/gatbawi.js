@@ -4,6 +4,8 @@
   const meterEl = document.querySelector("[data-meter]");
   const weatherEl = document.querySelector("[data-weather]");
   const hintEl = document.querySelector("[data-hint]");
+  const rainCountdownEl = document.querySelector("[data-rain-countdown]");
+  const rainSecEl = document.querySelector("[data-rain-sec]");
   if (!stage || !canvas) return;
 
   const ctx = canvas.getContext("2d", { alpha: false });
@@ -951,7 +953,19 @@
     /* 시스템 손모양 커서(pointer) 사용 */
   }
 
-  function updateUi(clear) {
+  function updateRainCountdown(now) {
+    if (!rainCountdownEl || !rainSecEl) return;
+    if (!state.clearHoldStartedAt) {
+      rainCountdownEl.hidden = true;
+      return;
+    }
+    const remainMs = Math.max(0, CLEAR_HOLD_MS - (now - state.clearHoldStartedAt));
+    const sec = Math.max(1, Math.ceil(remainMs / 1000));
+    rainSecEl.textContent = String(sec);
+    rainCountdownEl.hidden = false;
+  }
+
+  function updateUi(clear, now = performance.now()) {
     if (meterEl) meterEl.style.width = `${Math.round(clear * 100)}%`;
     if (weatherEl) {
       weatherEl.textContent =
@@ -974,6 +988,7 @@
         hintEl.classList.remove("is-done");
       }
     }
+    updateRainCountdown(now);
   }
 
   function frame(now) {
@@ -1018,7 +1033,7 @@
     drawRain(clear);
     drawBubbles();
     drawCursor();
-    updateUi(clear);
+    updateUi(clear, now);
 
     if (!reduceMotion) requestAnimationFrame(frame);
   }
