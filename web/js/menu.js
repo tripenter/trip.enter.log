@@ -28,19 +28,28 @@
     return `<div>${label}<a href="${href}">${title}</a></div>`;
   }
 
+  function childCountBadge(count) {
+    return `<span class="nav-count" aria-label="활성 하위 메뉴 ${count}개">${count}</span>`;
+  }
+
   function renderParent(menu) {
+    // /rest/get/menu 는 활성(WM_IsActive=1) 메뉴만 반환하므로 children 수가 활성 하위 개수다.
     const children = Array.isArray(menu.children) ? menu.children : [];
     const title = escapeHtml(menu.title || "");
     const topHref = menuHref(menu.folder);
-    const panelBody = children.length
+    const count = children.length;
+    const panelBody = count
       ? children.map(renderChild).join("")
       : `<p class="panel-empty">기록 예정이에요</p>`;
 
     return `
       <div class="nav-item nav-link-desktop" data-nav-item>
-        <a class="nav-link" href="${topHref}">${title}</a>
+        <a class="nav-link" href="${topHref}">
+          <span class="nav-link-label">${title}</span>
+          ${childCountBadge(count)}
+        </a>
         <div class="nav-panel" role="region" aria-label="${title} 하위메뉴">
-          <div class="nav-panel-inner${children.length ? "" : " is-empty"}">
+          <div class="nav-panel-inner${count ? "" : " is-empty"}">
             ${panelBody}
           </div>
         </div>
@@ -58,12 +67,19 @@
     const children = Array.isArray(menu.children) ? menu.children : [];
     const title = escapeHtml(menu.title || "");
     const topHref = menuHref(menu.folder);
+    const count = children.length;
     const id = `nav-drawer-section-${index}`;
+    const titleWithCount = `
+      <span class="nav-drawer-title">
+        <span>${title}</span>
+        ${childCountBadge(count)}
+      </span>
+    `;
 
-    if (!children.length) {
+    if (!count) {
       return `
         <div class="nav-drawer-item">
-          <a class="nav-drawer-parent" href="${topHref}">${title}</a>
+          <a class="nav-drawer-parent" href="${topHref}">${titleWithCount}</a>
         </div>
       `;
     }
@@ -77,7 +93,7 @@
           aria-controls="${id}"
           data-drawer-toggle
         >
-          <span>${title}</span>
+          ${titleWithCount}
           <span class="nav-drawer-chevron" aria-hidden="true"></span>
         </button>
         <div class="nav-drawer-children" id="${id}" hidden>
