@@ -100,13 +100,24 @@
   transition: width 0.15s linear;
 }
 
+.art-hints {
+  align-self: flex-start;
+  display: grid;
+  gap: 0.35rem;
+}
+
 .art-hint {
   margin: 0;
-  align-self: flex-start;
   font-size: 0.92rem;
   color: rgba(232, 238, 242, 0.82);
   text-shadow: 0 1px 14px rgba(10, 18, 24, 0.55);
   animation: hint-pulse 2.8s ease-in-out infinite;
+}
+
+.art-hint-secondary {
+  font-size: 0.86rem;
+  color: rgba(232, 238, 242, 0.72);
+  animation-delay: 0.4s;
 }
 
 .art-hint.is-done {
