@@ -38,6 +38,10 @@ body {
   font-family: "JetBrains Mono", ui-monospace, monospace;
 }
 
+.nobr {
+  white-space: nowrap;
+}
+
 /* —— Apple-like nav (light) —— */
 .site-nav {
   position: fixed;
@@ -465,6 +469,9 @@ body.is-nav-locked {
   font-size: clamp(0.95rem, 2vw, 1.05rem);
   line-height: 1.7;
   color: rgba(26, 43, 51, 0.72);
+  /* 한글 어절 단위로만 줄바꿈해 "다." 같은 조사/어미 단독 개행을 막는다. */
+  word-break: keep-all;
+  overflow-wrap: normal;
   opacity: 0;
   transform: translateY(18px);
 }
