@@ -766,6 +766,9 @@
   let pointerY = null;
   let lastMove = { x: 0, y: 0, ok: false };
   // 모바일 제스처: 세로면 페이지 스크롤(직접 scrollBy), 가로면 장면 패닝
+  // scrollBy + clientY 는 스크롤 후 델타가 상쇄되어 너무 작게 움직이므로
+  // movementY 우선 + 배율/관성으로 네이티브에 가깝게 맞춘다.
+  const SCROLL_GAIN = 2.4;
   let gesture = {
     active: false,
     axis: null,
@@ -773,15 +776,41 @@
     startX: 0,
     startY: 0,
     lastY: 0,
+    lastT: 0,
+    velocity: 0,
   };
+  let scrollInertiaId = 0;
 
   function isHotspotTarget(event) {
     return !!(event.target && event.target.closest && event.target.closest(".hotspot"));
   }
 
+  function stopScrollInertia() {
+    if (scrollInertiaId) {
+      window.cancelAnimationFrame(scrollInertiaId);
+      scrollInertiaId = 0;
+    }
+  }
+
+  function startScrollInertia(initialVelocity) {
+    stopScrollInertia();
+    let v = initialVelocity;
+    if (Math.abs(v) < 0.4) return;
+    // 손가락을 떼도 잠시 미끄러지듯 이어지게 한다.
+    const tick = () => {
+      v *= 0.92;
+      if (Math.abs(v) < 0.35) {
+        scrollInertiaId = 0;
+        return;
+      }
+      window.scrollBy(0, v);
+      scrollInertiaId = window.requestAnimationFrame(tick);
+    };
+    scrollInertiaId = window.requestAnimationFrame(tick);
+  }
+
   function resetGesture(event) {
     if (
-      event &&
       gesture.pointerId !== null &&
       stage.hasPointerCapture &&
       stage.hasPointerCapture(gesture.pointerId)
@@ -792,9 +821,11 @@
         /* ignore */
       }
     }
+    if (gesture.axis === "y") startScrollInertia(gesture.velocity);
     gesture.active = false;
     gesture.axis = null;
     gesture.pointerId = null;
+    gesture.velocity = 0;
     lastMove.ok = false;
   }
 
@@ -870,12 +901,27 @@
         /* ignore */
       }
       gesture.lastY = event.clientY;
+      gesture.lastT = event.timeStamp || performance.now();
+      gesture.velocity = 0;
     }
 
     if (gesture.axis === "y") {
-      const dy = event.clientY - gesture.lastY;
+      // movementY 는 화면 기준이라 scrollBy 이후 clientY 상쇄 문제를 피한다.
+      const rawDy =
+        typeof event.movementY === "number" && event.movementY !== 0
+          ? event.movementY
+          : event.clientY - gesture.lastY;
       gesture.lastY = event.clientY;
-      if (dy !== 0) window.scrollBy(0, -dy);
+      const now = event.timeStamp || performance.now();
+      const dt = Math.max(8, now - (gesture.lastT || now));
+      gesture.lastT = now;
+      const scrollDy = -rawDy * SCROLL_GAIN;
+      if (scrollDy !== 0) {
+        window.scrollBy(0, scrollDy);
+        // 최근 속도에 가중 평균을 두어 관성 스크롤에 쓴다.
+        const instant = scrollDy / (dt / 16.67);
+        gesture.velocity = gesture.velocity * 0.65 + instant * 0.35;
+      }
       lastMove.ok = false;
       return;
     }
@@ -890,6 +936,7 @@
         resetGesture();
         return;
       }
+      stopScrollInertia();
       gesture = {
         active: true,
         axis: null,
@@ -897,13 +944,18 @@
         startX: event.clientX,
         startY: event.clientY,
         lastY: event.clientY,
+        lastT: event.timeStamp || performance.now(),
+        velocity: 0,
       };
       const { x, y } = stagePoint(event);
       spawnWaterBurst(x, y);
     });
     stage.addEventListener("pointermove", onTouchPointerMove);
     stage.addEventListener("pointerup", resetGesture);
-    stage.addEventListener("pointercancel", resetGesture);
+    stage.addEventListener("pointercancel", (event) => {
+      gesture.velocity = 0;
+      resetGesture(event);
+    });
   } else {
     stage.addEventListener("pointermove", onPointer);
     stage.addEventListener("pointerdown", (event) => {
