@@ -196,6 +196,8 @@
       umbrella,
       scale: 0.8 + rnd() * 0.35,
       bubble: null,
+      onPath: false,
+      finishing: false,
     };
   }
 
@@ -299,15 +301,13 @@
     return { x: pos.x - leftNudge, y: pos.y - 6 + bob, s: personScale(p) };
   }
 
-  function visiblePeople(clear) {
+  function visiblePeople() {
     const list = [];
-    const rainCount = 1 + Math.floor(clamp(1 - clear, 0, 1) * 3);
-    const clearCount = 10 + Math.floor(clear * 5);
-    if (clear < 0.72) {
-      for (let i = 0; i < rainCount; i += 1) list.push({ p: rainyPeople[i], rainy: true });
+    for (const p of rainyPeople) {
+      if (p.onPath) list.push({ p, rainy: true });
     }
-    if (clear > 0.28) {
-      for (let i = 0; i < clearCount; i += 1) list.push({ p: clearPeople[i], rainy: false });
+    for (const p of clearPeople) {
+      if (p.onPath) list.push({ p, rainy: false });
     }
     return list;
   }
@@ -315,7 +315,7 @@
   function hitPerson(nx, ny) {
     const px = nx * state.w;
     const py = ny * state.h;
-    const list = visiblePeople(state.clear);
+    const list = visiblePeople();
     for (let i = list.length - 1; i >= 0; i -= 1) {
       const { p, rainy } = list[i];
       if (p.bubble && performance.now() < p.bubble.until) continue;
@@ -465,17 +465,90 @@
     return { x, y };
   }
 
-  function stepPerson(p) {
+  /** @returns {boolean} 동선 끝에 도달했는지 */
+  function stepPerson(p, { allowWrap = true } = {}) {
     p.u += p.dir * p.speed * 0.016;
-    // 바위 쪽으로 u<0 들어가지 않게 끝에서 바로 반대편으로
     if (p.u >= 1) {
+      if (!allowWrap) {
+        p.u = 1;
+        return true;
+      }
       p.u = 0;
       p.dir = 1;
       p.bubble = null;
     } else if (p.u <= 0) {
+      if (!allowWrap) {
+        p.u = 0;
+        return true;
+      }
       p.u = 1;
       p.dir = -1;
       p.bubble = null;
+    }
+    return false;
+  }
+
+  function desiredRainCount(clear) {
+    if (clear >= 0.72) return 0;
+    return 1 + Math.floor(clamp(1 - clear, 0, 1) * 3);
+  }
+
+  function desiredClearCount(clear) {
+    if (clear <= 0.28) return 0;
+    return 10 + Math.floor(clear * 5);
+  }
+
+  /**
+   * 날씨에 맞는 인원수를 맞추되, 줄어들 때는 즉시 숨기지 않고
+   * 동선 끝까지 걷게 한 뒤 제거한다.
+   */
+  function updatePeoplePool(pool, desired, umbrella) {
+    let keepers = pool.filter((p) => p.onPath && !p.finishing);
+
+    if (keepers.length < desired) {
+      for (const p of pool) {
+        if (keepers.length >= desired) break;
+        if (p.onPath && p.finishing) {
+          p.finishing = false;
+          keepers.push(p);
+        }
+      }
+    }
+    if (keepers.length < desired) {
+      for (const p of pool) {
+        if (keepers.length >= desired) break;
+        if (!p.onPath) {
+          p.onPath = true;
+          p.finishing = false;
+          p.dir = rnd() > 0.5 ? 1 : -1;
+          p.u = rnd() * 0.85;
+          p.bubble = null;
+          keepers.push(p);
+        }
+      }
+    }
+
+    if (keepers.length > desired) {
+      // 끝점에 가까운 사람부터 종료 대기 → 빨리 비우고 나머지는 계속 유지
+      const remaining = (p) => (p.dir > 0 ? 1 - p.u : p.u);
+      keepers.sort((a, b) => remaining(a) - remaining(b));
+      while (keepers.length > desired) {
+        const p = keepers.shift();
+        p.finishing = true;
+      }
+    }
+
+    for (const p of pool) {
+      if (!p.onPath) continue;
+      const reachedEnd = stepPerson(p, { allowWrap: !p.finishing });
+      if (p.finishing && reachedEnd) {
+        p.onPath = false;
+        p.finishing = false;
+        p.bubble = null;
+        continue;
+      }
+      // 동선 위 사람은 날씨 알파와 무관하게 항상 선명하게
+      drawPerson(p, umbrella, 1);
     }
   }
 
@@ -840,7 +913,7 @@
   function drawBubbles() {
     const now = performance.now();
     for (const p of rainyPeople) {
-      if (!p.bubble) continue;
+      if (!p.onPath || !p.bubble) continue;
       if (now >= p.bubble.until) {
         p.bubble = null;
         continue;
@@ -852,7 +925,7 @@
       drawSpeechBubble(pos.x, head, p.bubble.text, fade);
     }
     for (const p of clearPeople) {
-      if (!p.bubble) continue;
+      if (!p.onPath || !p.bubble) continue;
       if (now >= p.bubble.until) {
         p.bubble = null;
         continue;
@@ -909,28 +982,8 @@
   }
 
   function drawPeople(clear) {
-    const rainCount = 1 + Math.floor(clamp(1 - clear, 0, 1) * 3);
-    const clearCount = 10 + Math.floor(clear * 5);
-    const showRain = clear < 0.72;
-    const showClear = clear > 0.28;
-
-    if (showRain) {
-      const alpha = clamp(1 - (clear - 0.35) / 0.4, 0, 1);
-      for (let i = 0; i < rainCount; i += 1) {
-        const p = rainyPeople[i];
-        stepPerson(p);
-        drawPerson(p, true, alpha);
-      }
-    }
-
-    if (showClear) {
-      const alpha = clamp((clear - 0.28) / 0.45, 0, 1);
-      for (let i = 0; i < clearCount; i += 1) {
-        const p = clearPeople[i];
-        stepPerson(p);
-        drawPerson(p, false, alpha);
-      }
-    }
+    updatePeoplePool(rainyPeople, desiredRainCount(clear), true);
+    updatePeoplePool(clearPeople, desiredClearCount(clear), false);
   }
 
   function drawCursor() {
