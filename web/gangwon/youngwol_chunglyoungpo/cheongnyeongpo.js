@@ -349,6 +349,15 @@
       };
 
       if (touchUi) {
+        // 모바일: 포인트 위에서는 좌우 패닝이 시작되지 않도록 이벤트를 막는다.
+        const blockStagePan = (event) => {
+          event.stopPropagation();
+        };
+        el.addEventListener("pointerdown", blockStagePan);
+        el.addEventListener("pointermove", blockStagePan);
+        el.addEventListener("touchstart", blockStagePan, { passive: true });
+        el.addEventListener("touchmove", blockStagePan, { passive: true });
+
         // 모바일: 터치(탭)로 열고, 같은 포인트를 다시 탭하면 닫는다.
         dot.addEventListener("click", (event) => {
           event.preventDefault();
@@ -770,6 +779,12 @@
   }
 
   function onPointer(event) {
+    // 설명 포인트 위에서는 좌우 패닝/시간 이동을 하지 않는다.
+    if (event.target && event.target.closest && event.target.closest(".hotspot")) {
+      lastMove.ok = false;
+      return;
+    }
+
     const { x, y, w, h } = stagePoint(event);
     if (x < 0 || y < 0 || x > w || y > h) return;
 
@@ -799,6 +814,10 @@
 
   stage.addEventListener("pointermove", onPointer);
   stage.addEventListener("pointerdown", (event) => {
+    if (event.target && event.target.closest && event.target.closest(".hotspot")) {
+      lastMove.ok = false;
+      return;
+    }
     onPointer(event);
     const { x, y } = stagePoint(event);
     const art = toArt(x, y);
