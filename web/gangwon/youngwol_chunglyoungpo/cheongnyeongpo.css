@@ -135,7 +135,7 @@
 
 .figure-bubble {
   position: absolute;
-  left: 8%;
+  left: calc(8% + 30px);
   top: calc(6% - 70px);
   z-index: 2;
   max-width: min(220px, 72%);
@@ -684,7 +684,7 @@
   }
 
   .figure-bubble {
-    left: 4%;
+    left: calc(4% + 30px);
     top: calc(2% - 70px);
     max-width: min(180px, 78%);
     font-size: 0.75rem;
