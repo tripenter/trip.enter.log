@@ -13,7 +13,7 @@
   const touchUi = window.matchMedia("(hover: none)").matches;
 
   const IMG_RAIN = "../../img/gatbawi-rain.jpg";
-  const IMG_CLEAR = "../../img/gatbawi-clear.jpg";
+  const IMG_CLEAR = "../../img/gatbawi-clear.jpg?v=noAiMark";
 
   // 구름이 충분히 걷힌 뒤 이 시간이 지나면 다시 비 오는 상태로 돌아간다.
   const CLEAR_HOLD_MS = 20000;
@@ -505,7 +505,8 @@
     state.wipeTrail.push({ x: nx, y: ny, life: 1 });
     if (state.wipeTrail.length > 56) state.wipeTrail.shift();
     const rainLeft = 1 - state.clear;
-    state.targetClear = clamp(state.targetClear + 0.014 * (0.4 + rainLeft), 0, 1);
+    // 구름 쓸어내기 속도 (기존 대비 3배 느리게)
+    state.targetClear = clamp(state.targetClear + (0.014 / 3) * (0.4 + rainLeft), 0, 1);
   }
 
   function applyInteraction(clientX, clientY, opts = {}) {
@@ -665,23 +666,6 @@
         Math.sin(y * 0.045 + state.t * 2.1) * amp * (0.35 + depth) +
         Math.sin(y * 0.11 - state.t * 1.4) * amp * 0.45;
       ctx.drawImage(waveCanvas, x0, y, ww, step, x0 + shift, y, ww, step);
-    }
-
-    const bands = 7;
-    for (let i = 0; i < bands; i += 1) {
-      const yy = y0 + 24 + i * ((y1 - y0) / (bands + 1));
-      ctx.beginPath();
-      for (let x = x0; x <= state.w; x += 8) {
-        const wave =
-          Math.sin(x * 0.014 + state.t * 1.6 + i) * lerp(5.5, 2.5, clear) +
-          Math.sin(x * 0.03 - state.t + i * 1.3) * 1.8;
-        const y = yy + wave;
-        if (x === x0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.strokeStyle = `rgba(220, 235, 245, ${0.07 + clear * 0.08})`;
-      ctx.lineWidth = 1.15;
-      ctx.stroke();
     }
     ctx.restore();
   }
