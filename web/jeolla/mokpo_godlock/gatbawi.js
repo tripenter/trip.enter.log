@@ -13,6 +13,10 @@
   const IMG_RAIN = "../../img/gatbawi-rain.jpg";
   const IMG_CLEAR = "../../img/gatbawi-clear.jpg";
 
+  // 구름이 충분히 걷힌 뒤 이 시간이 지나면 다시 비 오는 상태로 돌아간다.
+  const CLEAR_HOLD_MS = 20000;
+  const CLEAR_HOLD_THRESHOLD = 0.9;
+
   const state = {
     w: 0,
     h: 0,
@@ -30,6 +34,7 @@
     wipeTrail: [],
     ready: false,
     cloudsWereHeavy: true,
+    clearHoldStartedAt: 0,
   };
 
   const rainImg = new Image();
@@ -984,6 +989,19 @@
     state.wipeTrail = state.wipeTrail.filter((w) => w.life > 0.04);
 
     const clear = state.clear;
+
+    // 구름이 걷힌 상태를 20초 유지한 뒤 비로 되돌린다.
+    if (clear >= CLEAR_HOLD_THRESHOLD && state.targetClear >= CLEAR_HOLD_THRESHOLD) {
+      if (!state.clearHoldStartedAt) state.clearHoldStartedAt = now;
+      else if (now - state.clearHoldStartedAt >= CLEAR_HOLD_MS) {
+        state.targetClear = 0;
+        state.wipeTrail = [];
+        state.clearHoldStartedAt = 0;
+      }
+    } else if (clear < 0.45) {
+      state.clearHoldStartedAt = 0;
+    }
+
     // 구름이 걷히면(맑음 쪽) 떠 있던 말풍선 전부 제거
     if (state.cloudsWereHeavy && clear >= 0.55) {
       clearAllBubbles();
