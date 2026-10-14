@@ -768,7 +768,7 @@
   // 모바일 제스처: 세로면 페이지 스크롤(직접 scrollBy), 가로면 장면 패닝
   // scrollBy + clientY 는 스크롤 후 델타가 상쇄되어 너무 작게 움직이므로
   // movementY 우선 + 배율/관성으로 네이티브에 가깝게 맞춘다.
-  const SCROLL_GAIN = 2.4;
+  const SCROLL_GAIN = 24;
   let gesture = {
     active: false,
     axis: null,
@@ -776,6 +776,7 @@
     startX: 0,
     startY: 0,
     lastY: 0,
+    lastScreenY: 0,
     lastT: 0,
     velocity: 0,
   };
@@ -901,24 +902,29 @@
         /* ignore */
       }
       gesture.lastY = event.clientY;
+      gesture.lastScreenY = event.screenY;
       gesture.lastT = event.timeStamp || performance.now();
       gesture.velocity = 0;
     }
 
     if (gesture.axis === "y") {
-      // movementY 는 화면 기준이라 scrollBy 이후 clientY 상쇄 문제를 피한다.
-      const rawDy =
-        typeof event.movementY === "number" && event.movementY !== 0
-          ? event.movementY
-          : event.clientY - gesture.lastY;
+      // screenY/movementY 는 문서 스크롤에 영향받지 않아 clientY 상쇄를 피한다.
+      let rawDy = 0;
+      if (typeof event.movementY === "number" && event.movementY !== 0) {
+        rawDy = event.movementY;
+      } else if (typeof event.screenY === "number") {
+        rawDy = event.screenY - gesture.lastScreenY;
+      } else {
+        rawDy = event.clientY - gesture.lastY;
+      }
       gesture.lastY = event.clientY;
+      gesture.lastScreenY = event.screenY;
       const now = event.timeStamp || performance.now();
       const dt = Math.max(8, now - (gesture.lastT || now));
       gesture.lastT = now;
       const scrollDy = -rawDy * SCROLL_GAIN;
       if (scrollDy !== 0) {
         window.scrollBy(0, scrollDy);
-        // 최근 속도에 가중 평균을 두어 관성 스크롤에 쓴다.
         const instant = scrollDy / (dt / 16.67);
         gesture.velocity = gesture.velocity * 0.65 + instant * 0.35;
       }
@@ -944,6 +950,7 @@
         startX: event.clientX,
         startY: event.clientY,
         lastY: event.clientY,
+        lastScreenY: event.screenY,
         lastT: event.timeStamp || performance.now(),
         velocity: 0,
       };
