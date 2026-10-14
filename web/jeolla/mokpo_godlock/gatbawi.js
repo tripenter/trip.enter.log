@@ -15,8 +15,9 @@
   const IMG_RAIN = "../../img/gatbawi-rain.jpg";
   const IMG_CLEAR = "../../img/gatbawi-clear.jpg?v=noAiMark";
 
-  // 구름이 충분히 걷힌 뒤 이 시간이 지나면 다시 비 오는 상태로 돌아간다.
-  const CLEAR_HOLD_MS = 20000;
+  // 구름이 충분히 걷힌 뒤 이 시간(20~40초 랜덤)이 지나면 다시 비 오는 상태로 돌아간다.
+  const CLEAR_HOLD_MS_MIN = 20000;
+  const CLEAR_HOLD_MS_MAX = 40000;
   const CLEAR_HOLD_THRESHOLD = 0.9;
 
   const state = {
@@ -37,6 +38,7 @@
     ready: false,
     cloudsWereHeavy: true,
     clearHoldStartedAt: 0,
+    clearHoldMs: 0,
   };
 
   const rainImg = new Image();
@@ -602,9 +604,11 @@
     const hit = hitPerson(state.mx, state.my);
     if (!hit) return;
     const rainyMood = hit.rainy || state.clear < 0.45;
+    const now = performance.now();
     hit.p.bubble = {
       text: pickLine(rainyMood),
-      until: performance.now() + 10000,
+      until: now + 10000,
+      at: now, // 나중에 뜬 말풍선이 위에 그려지도록
     };
   }
 
@@ -912,17 +916,14 @@
 
   function drawBubbles() {
     const now = performance.now();
+    const active = [];
     for (const p of rainyPeople) {
       if (!p.onPath || !p.bubble) continue;
       if (now >= p.bubble.until) {
         p.bubble = null;
         continue;
       }
-      const pos = personScreenPos(p);
-      const remain = p.bubble.until - now;
-      const fade = remain < 800 ? remain / 800 : 1;
-      const head = pos.y - (p.umbrella ? 36 : 26) * pos.s;
-      drawSpeechBubble(pos.x, head, p.bubble.text, fade);
+      active.push(p);
     }
     for (const p of clearPeople) {
       if (!p.onPath || !p.bubble) continue;
@@ -930,10 +931,15 @@
         p.bubble = null;
         continue;
       }
+      active.push(p);
+    }
+    // 나중에 표시된 말풍선이 위에 오도록 시간순 정렬 후 그리기
+    active.sort((a, b) => (a.bubble.at || 0) - (b.bubble.at || 0));
+    for (const p of active) {
       const pos = personScreenPos(p);
       const remain = p.bubble.until - now;
       const fade = remain < 800 ? remain / 800 : 1;
-      const head = pos.y - 26 * pos.s;
+      const head = pos.y - (p.umbrella ? 36 : 26) * pos.s;
       drawSpeechBubble(pos.x, head, p.bubble.text, fade);
     }
   }
@@ -990,13 +996,17 @@
     /* 시스템 손모양 커서(pointer) 사용 */
   }
 
+  function pickClearHoldMs() {
+    return CLEAR_HOLD_MS_MIN + Math.floor(Math.random() * (CLEAR_HOLD_MS_MAX - CLEAR_HOLD_MS_MIN + 1));
+  }
+
   function updateRainCountdown(now) {
     if (!rainCountdownEl || !rainSecEl) return;
-    if (!state.clearHoldStartedAt) {
+    if (!state.clearHoldStartedAt || !state.clearHoldMs) {
       rainCountdownEl.hidden = true;
       return;
     }
-    const remainMs = Math.max(0, CLEAR_HOLD_MS - (now - state.clearHoldStartedAt));
+    const remainMs = Math.max(0, state.clearHoldMs - (now - state.clearHoldStartedAt));
     const sec = Math.max(1, Math.ceil(remainMs / 1000));
     rainSecEl.textContent = String(sec);
     rainCountdownEl.hidden = false;
@@ -1042,16 +1052,20 @@
 
     const clear = state.clear;
 
-    // 구름이 걷힌 상태를 20초 유지한 뒤 비로 되돌린다.
+    // 구름이 걷힌 상태를 20~40초(랜덤) 유지한 뒤 비로 되돌린다.
     if (clear >= CLEAR_HOLD_THRESHOLD && state.targetClear >= CLEAR_HOLD_THRESHOLD) {
-      if (!state.clearHoldStartedAt) state.clearHoldStartedAt = now;
-      else if (now - state.clearHoldStartedAt >= CLEAR_HOLD_MS) {
+      if (!state.clearHoldStartedAt) {
+        state.clearHoldStartedAt = now;
+        state.clearHoldMs = pickClearHoldMs();
+      } else if (now - state.clearHoldStartedAt >= state.clearHoldMs) {
         state.targetClear = 0;
         state.wipeTrail = [];
         state.clearHoldStartedAt = 0;
+        state.clearHoldMs = 0;
       }
     } else if (clear < 0.45) {
       state.clearHoldStartedAt = 0;
+      state.clearHoldMs = 0;
     }
 
     // 구름이 걷히면(맑음 쪽) 떠 있던 말풍선 전부 제거
