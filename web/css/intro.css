@@ -682,6 +682,61 @@ body.is-nav-locked {
   font-size: 0.96rem;
 }
 
+.flow-list {
+  list-style: none;
+  margin: 2.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+  border-top: 1px solid var(--line);
+}
+
+@media (min-width: 900px) {
+  .flow-list {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .flow-item + .flow-item {
+    border-left: 1px solid var(--line);
+  }
+}
+
+.flow-item {
+  margin: 0;
+  padding: 1.4rem 0 1.55rem;
+  border-bottom: 1px solid var(--line);
+  opacity: 0;
+  transform: translateY(24px);
+}
+
+@media (min-width: 900px) {
+  .flow-item {
+    padding: 1.4rem 1.25rem 1.55rem;
+    border-bottom: 0;
+  }
+}
+
+.flow-key {
+  margin: 0 0 0.55rem;
+  color: var(--code);
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+}
+
+.flow-item h3 {
+  margin: 0 0 0.55rem;
+  font-size: 1.25rem;
+  color: var(--ink);
+}
+
+.flow-item p {
+  margin: 0;
+  color: rgba(26, 43, 51, 0.7);
+  line-height: 1.75;
+  font-size: 0.96rem;
+  word-break: keep-all;
+}
+
 .section-themes {
   padding-top: 2rem;
 }
