@@ -104,6 +104,14 @@ body {
   flex: 1;
 }
 
+.enter-glyph {
+  display: inline-block;
+  margin-left: 0.12em;
+  font-weight: 700;
+  letter-spacing: 0;
+  opacity: 0.88;
+}
+
 .nav-brand {
   color: var(--ink);
   text-decoration: none;
@@ -552,6 +560,7 @@ body.is-nav-locked {
   z-index: 1;
   width: min(920px, 100%);
   text-align: center;
+  margin-top: 115px;
 }
 
 .hero-path {
