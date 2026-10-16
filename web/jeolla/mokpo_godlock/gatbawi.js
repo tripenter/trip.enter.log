@@ -883,7 +883,7 @@
   function drawSpeechBubble(x, y, text, alpha) {
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.font = '600 13px "Pretendard", "Noto Sans KR", sans-serif';
+    ctx.font = '700 13px "D2Coding", monospace';
     const padX = 10;
     const padY = 7;
     const tw = ctx.measureText(text).width;

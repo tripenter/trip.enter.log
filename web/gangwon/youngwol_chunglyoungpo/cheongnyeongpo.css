@@ -679,16 +679,18 @@
   }
 
   .figure {
-    height: clamp(220px, 40vh, 360px);
+    /* 데스크톱 대비가 아니라, 기존 모바일 크기의 70% */
+    height: clamp(154px, 28vh, 252px);
     right: -4vw;
   }
 
   .figure-bubble {
-    left: calc(4% + 60px);
-    top: calc(2% - 70px);
-    max-width: min(180px, 78%);
-    font-size: 0.75rem;
-    padding: 0.45rem 0.6rem;
+    /* 고정 px 오프셋도 70%로 맞춰 머리 위치를 유지 */
+    left: calc(4% + 42px);
+    top: calc(2% - 49px);
+    max-width: min(126px, 78%);
+    font-size: 0.68rem;
+    padding: 0.4rem 0.5rem;
   }
 
   .fact-row {
