@@ -96,8 +96,8 @@
   bottom: 0;
   height: clamp(280px, 56vh, 620px);
   aspect-ratio: 864 / 906;
-  /* hotspots(8) 아래: 유적 포인트가 단종 박스와 겹쳐도 클릭 가능 */
-  z-index: 7;
+  /* hotspots 아래: 설명 패널·포인트가 단종·말풍선 위에 그려지게 한다 */
+  z-index: 6;
   will-change: transform;
   pointer-events: none;
 }
@@ -226,7 +226,8 @@
 .hotspots {
   position: absolute;
   inset: 0;
-  z-index: 8;
+  /* 단종(6)·stage-ui(7)보다 위 — 열린 설명 패널이 이미지/말풍선에 가리지 않음 */
+  z-index: 12;
   will-change: transform;
   /* 빈 영역은 아래 레이어(단종·스테이지)로 클릭을 통과시킨다 */
   pointer-events: none;
@@ -345,6 +346,10 @@
   transition: opacity 0.26s ease, transform 0.26s ease, visibility 0.26s;
   pointer-events: none;
   z-index: 2;
+}
+
+.hotspot.is-open .hotspot-card {
+  z-index: 40;
 }
 
 .hotspot[data-align="start"] .hotspot-card {
@@ -553,21 +558,9 @@
   font-weight: 600;
 }
 
+/* 동·서 나침 표기 제거 (캐시된 구 HTML 대비) */
 .compass {
-  position: absolute;
-  top: var(--horizon, 40%);
-  font-size: 0.76rem;
-  letter-spacing: 0.3em;
-  opacity: 0.5;
-  transform: translateY(-50%);
-}
-
-.compass-e {
-  right: 1.1rem;
-}
-
-.compass-w {
-  left: 1.1rem;
+  display: none !important;
 }
 
 .reward {
