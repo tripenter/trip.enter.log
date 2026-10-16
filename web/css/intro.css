@@ -574,7 +574,7 @@ body.is-nav-locked {
 
 .brand-mark {
   margin: 0 0 1.1rem;
-  font-size: clamp(2.8rem, 9vw, 5.6rem);
+  font-size: clamp(1.75rem, 5.5vw, 3.5rem);
   line-height: 1.05;
   letter-spacing: -0.04em;
   color: var(--ink);
