@@ -25,6 +25,8 @@
       };
     </script>
     <link rel="stylesheet" href="./css/intro.css?v=navCount1" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="./css/korea-map.css?v=sig33" />
   </head>
   <body class="page-intro">
     <header class="site-nav" role="banner">
@@ -172,6 +174,21 @@
           </div>
         </div>
       </section>
+
+      <section id="map" class="section section-map" aria-label="대한민국 시군구 지도">
+        <div class="section-inner section-inner-map">
+          <p class="section-kicker font-mono">// map.sig</p>
+          <h2 class="section-title font-display">시·군·구로 덮은 지도</h2>
+          <p class="section-copy">
+            대한민국을 시·군·구 단위로 가려 두고 이름을 올립니다.
+            메뉴에 장소가 등록되면 그 지역이 강조되고 목록에서 선택할 수 있습니다.
+          </p>
+          <div class="korea-map-frame">
+            <div id="korea-map" class="korea-map" role="application" aria-label="대한민국 시·군·구 지도"></div>
+            <p class="korea-map-status font-mono" data-korea-status>메뉴가 있는 지역에 올리면 목록에서 선택할 수 있습니다.</p>
+          </div>
+        </div>
+      </section>
     </main>
 
     <footer class="site-footer">
@@ -181,5 +198,8 @@
 
     <script src="./js/menu.js?v=navCount2" defer></script>
     <script src="./js/intro.js?v=codeFeel1" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>
+    <script src="./js/korea-sig-map.js?v=core7" defer></script>
+    <script src="./js/korea-map.js?v=menu3" defer></script>
   </body>
 </html>
