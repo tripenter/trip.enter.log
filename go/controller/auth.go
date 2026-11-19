@@ -313,10 +313,16 @@ func GoogleCallback(c *gin.Context) {
 // AuthMe returns the current login session.
 // Route: GET /rest/auth/me
 func AuthMe(c *gin.Context) {
-	s := ensureAccountSession(c)
+	s := readSession(c)
 	if s == nil {
 		c.JSON(http.StatusOK, gin.H{"logged_in": false})
 		return
+	}
+	// account_id 가 없는 구 세션이면 DB에서 보강하되, 실패해도 로그인 UI는 유지한다.
+	if s.AccountID <= 0 {
+		if hydrated := ensureAccountSession(c); hydrated != nil {
+			s = hydrated
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"logged_in":  true,
