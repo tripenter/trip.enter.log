@@ -428,7 +428,7 @@
       return;
     }
     const title = document.querySelector("[data-journey-title]");
-    if (title && me.nickname) title.textContent = `${me.nickname}의 여정`;
+    if (title && me.nickname) title.textContent = `${me.nickname}님의 여정`;
 
     if (!window.TripEnterSigMap) {
       console.error("TripEnterSigMap missing");

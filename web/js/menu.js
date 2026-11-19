@@ -383,7 +383,7 @@
     document.querySelectorAll("[data-nav-journey]").forEach((el) => el.remove());
     if (!nickname) return;
 
-    const label = `${nickname}의 여정`;
+    const label = `${nickname}님의 여정`;
     if (mount) {
       const link = document.createElement("a");
       link.className = "nav-journey nav-link-desktop";
