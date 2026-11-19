@@ -25,7 +25,8 @@
 }
 
 .korea-map {
-  height: clamp(967px, 142vh, 1590px);
+  /* 뷰포트 한 화면에 남한(제주 포함)이 들어오도록 높이 제한 */
+  height: clamp(560px, 72vh, 820px);
   background:
     radial-gradient(ellipse at 50% 40%, rgba(167, 220, 200, 0.28), transparent 62%),
     #e7f3f8;
@@ -70,6 +71,43 @@
   stroke-linejoin: round;
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
+}
+
+.korea-map path.korea-nk-outline {
+  fill: none !important;
+  pointer-events: none !important;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.korea-map path.korea-dokdo-land {
+  pointer-events: none !important;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.korea-dokdo-label {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  pointer-events: none !important;
+}
+
+.korea-dokdo-label span {
+  display: inline-block;
+  padding: 0.05rem 0.28rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(26, 43, 51, 0.14);
+  color: #1a2b33;
+  font-family: "Pretendard Variable", "Pretendard", "Noto Sans KR", sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(26, 43, 51, 0.12);
 }
 
 .leaflet-popup.korea-soon-popup .leaflet-popup-content-wrapper {

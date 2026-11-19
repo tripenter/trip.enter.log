@@ -14,6 +14,33 @@
  */
 (() => {
   const DEFAULT_GEO_URL = "/data/korea-sig.geojson";
+  const DEFAULT_NK_OUTLINE_URL = "/data/korea-nk-outline.geojson";
+  const DEFAULT_DOKDO_URL = "/data/korea-dokdo.geojson";
+  // 독도(동도·서도) 표기용 — 전국 배율에서도 보이도록 약간 확대한 도형 + 라벨
+  const DOKDO_LABEL_LATLNG = [37.242, 131.868];
+
+  const NK_OUTLINE = {
+    stroke: true,
+    color: "rgba(26, 43, 51, 0.45)",
+    weight: 1.1,
+    opacity: 1,
+    fill: false,
+    fillOpacity: 0,
+    lineJoin: "round",
+    lineCap: "round",
+    className: "korea-nk-outline",
+  };
+  const DOKDO_FILL = {
+    stroke: true,
+    color: "rgba(255, 255, 255, 0.95)",
+    weight: 0.9,
+    opacity: 1,
+    fillColor: "#1a2b33",
+    fillOpacity: 0.22,
+    lineJoin: "round",
+    lineCap: "round",
+    className: "korea-dokdo-land",
+  };
 
   const REGION_BY_PREFIX = {
     "11": { kind: "metro", label: "서울" },
@@ -440,7 +467,16 @@
     }
 
     const geoUrl = options.geoUrl || DEFAULT_GEO_URL;
-    const zoomOffset = Number.isFinite(options.zoomOffset) ? options.zoomOffset : 1;
+    const nkOutlineUrl =
+      options.nkOutlineUrl === null || options.nkOutlineUrl === false
+        ? ""
+        : options.nkOutlineUrl || DEFAULT_NK_OUTLINE_URL;
+    const dokdoUrl =
+      options.dokdoUrl === null || options.dokdoUrl === false
+        ? ""
+        : options.dokdoUrl || DEFAULT_DOKDO_URL;
+    // 남한 전체가 보이도록 fitBounds 결과를 기본으로 쓴다. 양수 offset은 확대라 제주·북단이 잘릴 수 있음.
+    const zoomOffset = Number.isFinite(options.zoomOffset) ? options.zoomOffset : 0;
     // 다른 지역에 마우스를 올리면 기본적으로 0.5초 후 호버 팝업을 닫는다.
     const popupHideDelay = Number.isFinite(options.popupHideDelay) ? options.popupHideDelay : 500;
     const emptyClickDuration = Number.isFinite(options.emptyClickDuration) ? options.emptyClickDuration : 3000;
@@ -490,6 +526,9 @@
     let itemCount = 0;
     let collection = null;
     let geoLayer = null;
+    let nkOutlineLayer = null;
+    let dokdoLayer = null;
+    let dokdoLabel = null;
     let fillLayer = null;
     let strokeLayer = null;
 
@@ -754,10 +793,40 @@
 
       paintActiveOverlays();
       // 초기 1회만 fitBounds/zoom 고정. 일기 저장 후 setItems 시 재확대 방지.
+      // 남한(+독도)만 프레임에 맞춘다. 북한 아웃라인은 배율 계산에서 제외(잘려도 됨).
       if (!viewInitialized || resetView) {
-        map.fitBounds(geoLayer.getBounds(), { padding: [24, 24], maxZoom: 9 });
-        const overviewZoom = map.getZoom();
-        const startZoom = overviewZoom + zoomOffset;
+        map.invalidateSize(false);
+        let southBounds = geoLayer.getBounds();
+        if (dokdoLayer) {
+          southBounds = southBounds.extend(dokdoLayer.getBounds());
+        }
+        const fitOpts = {
+          paddingTopLeft: [20, 32],
+          paddingBottomRight: [20, 44],
+          maxZoom: 8,
+          animate: false,
+        };
+        map.fitBounds(southBounds, fitOpts);
+        // 남한 네 모서리가 모두 들어오는지 확인하고, 안 되면 한 단계 축소
+        const corners = [
+          southBounds.getNorthWest(),
+          southBounds.getNorthEast(),
+          southBounds.getSouthWest(),
+          southBounds.getSouthEast(),
+        ];
+        let startZoom = map.getZoom();
+        const fullyInside = () => {
+          const view = map.getBounds();
+          return corners.every((c) => view.contains(c));
+        };
+        if (!fullyInside() && startZoom > 1) {
+          map.setZoom(startZoom - 1, { animate: false });
+          startZoom = map.getZoom();
+        }
+        if (zoomOffset < 0) {
+          startZoom = Math.max(1, startZoom + zoomOffset);
+          map.setView(map.getCenter(), startZoom, { animate: false });
+        }
         map.setView(map.getCenter(), startZoom, { animate: false });
         map.setMinZoom(startZoom);
         map.setMaxZoom(startZoom);
@@ -781,12 +850,80 @@
       }
     };
 
-    const ready = fetch(geoUrl)
-      .then((response) => {
+    const loadNkOutline = () => {
+      if (!nkOutlineUrl) return Promise.resolve(null);
+      return fetch(nkOutlineUrl)
+        .then((response) => {
+          if (!response.ok) throw new Error(`nk outline ${response.status}`);
+          return response.json();
+        })
+        .then((geojson) => {
+          if (nkOutlineLayer) {
+            map.removeLayer(nkOutlineLayer);
+            nkOutlineLayer = null;
+          }
+          nkOutlineLayer = window.L.geoJSON(geojson, {
+            style: NK_OUTLINE,
+            interactive: false,
+            pane: "overlayPane",
+          }).addTo(map);
+          return nkOutlineLayer;
+        })
+        .catch((err) => {
+          console.warn("TripEnterSigMap: North Korea outline skipped:", err);
+          return null;
+        });
+    };
+
+    const loadDokdo = () => {
+      if (!dokdoUrl) return Promise.resolve(null);
+      return fetch(dokdoUrl)
+        .then((response) => {
+          if (!response.ok) throw new Error(`dokdo ${response.status}`);
+          return response.json();
+        })
+        .then((geojson) => {
+          if (dokdoLayer) {
+            map.removeLayer(dokdoLayer);
+            dokdoLayer = null;
+          }
+          if (dokdoLabel) {
+            map.removeLayer(dokdoLabel);
+            dokdoLabel = null;
+          }
+          dokdoLayer = window.L.geoJSON(geojson, {
+            style: DOKDO_FILL,
+            interactive: false,
+            pane: "overlayPane",
+          }).addTo(map);
+          dokdoLabel = window.L.marker(DOKDO_LABEL_LATLNG, {
+            interactive: false,
+            keyboard: false,
+            pane: "tooltipPane",
+            icon: window.L.divIcon({
+              className: "korea-dokdo-label",
+              html: "<span>독도</span>",
+              iconSize: [36, 16],
+              iconAnchor: [-6, 8],
+            }),
+          }).addTo(map);
+          return dokdoLayer;
+        })
+        .catch((err) => {
+          console.warn("TripEnterSigMap: Dokdo layer skipped:", err);
+          return null;
+        });
+    };
+
+    const ready = Promise.all([
+      fetch(geoUrl).then((response) => {
         if (!response.ok) throw new Error(`geojson ${response.status}`);
         return response.json();
-      })
-      .then(async (geojson) => {
+      }),
+      loadNkOutline(),
+      loadDokdo(),
+    ])
+      .then(async ([geojson]) => {
         collection = geojson;
         districts = buildDistricts(collection);
 
