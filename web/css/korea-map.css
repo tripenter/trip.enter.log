@@ -2,6 +2,16 @@
   padding-top: 2.5rem;
 }
 
+.section-map [data-map-coverage] {
+  max-width: none;
+}
+
+.section-map .map-coverage-line {
+  display: inline-block;
+  margin-top: 0.35em;
+  white-space: nowrap;
+}
+
 .section-inner-map {
   width: min(1240px, 100%);
 }
