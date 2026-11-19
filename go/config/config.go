@@ -30,24 +30,32 @@ type OAuthRedirectURIs struct {
 	Release string `json:"release"`
 }
 
-// KakaoOAuthConfig is Kakao login credentials loaded from config.json (not hardcoded).
-type KakaoOAuthConfig struct {
+// ProviderOAuthConfig is shared OAuth client settings for a social provider.
+type ProviderOAuthConfig struct {
 	ClientID     string            `json:"client_id"`
 	ClientSecret string            `json:"client_secret"`
 	RedirectURIs OAuthRedirectURIs `json:"redirect_uris"`
 }
 
+// KakaoOAuthConfig is Kakao login credentials loaded from config.json (not hardcoded).
+type KakaoOAuthConfig = ProviderOAuthConfig
+
+// NaverOAuthConfig is Naver login credentials loaded from config.json (not hardcoded).
+type NaverOAuthConfig = ProviderOAuthConfig
+
 // OAuthConfig groups social login providers.
 type OAuthConfig struct {
 	Kakao KakaoOAuthConfig `json:"kakao"`
+	Naver NaverOAuthConfig `json:"naver"`
 }
 
 type Config struct {
 	Server   ServerConfig   `json:"server"`
 	Database DatabaseConfig `json:"-"`
 	OAuth    OAuthConfig    `json:"oauth"`
-	// KakaoRedirectURI is selected by APP_DEBUG (debug vs release).
+	// KakaoRedirectURI / NaverRedirectURI are selected by APP_DEBUG (debug vs release).
 	KakaoRedirectURI string `json:"-"`
+	NaverRedirectURI string `json:"-"`
 }
 
 type configFile struct {
@@ -107,22 +115,33 @@ func LoadConfigWithDebug(configPath string, debug bool) (*Config, error) {
 		return nil, fmt.Errorf("debug=%v 인 데이터베이스 설정을 찾을 수 없습니다", debug)
 	}
 
-	redirect := raw.OAuth.Kakao.RedirectURIs.Release
-	if debug {
-		redirect = raw.OAuth.Kakao.RedirectURIs.Debug
-	}
+	kakaoRedirect := pickRedirectURI(raw.OAuth.Kakao.RedirectURIs, debug)
+	naverRedirect := pickRedirectURI(raw.OAuth.Naver.RedirectURIs, debug)
 
 	return &Config{
 		Server:           raw.Server,
 		Database:         *selected,
 		OAuth:            raw.OAuth,
-		KakaoRedirectURI: redirect,
+		KakaoRedirectURI: kakaoRedirect,
+		NaverRedirectURI: naverRedirect,
 	}, nil
+}
+
+func pickRedirectURI(uris OAuthRedirectURIs, debug bool) string {
+	if debug {
+		return strings.TrimSpace(uris.Debug)
+	}
+	return strings.TrimSpace(uris.Release)
 }
 
 // KakaoConfigured reports whether Kakao OAuth client id is present.
 func (c *Config) KakaoConfigured() bool {
 	return c != nil && strings.TrimSpace(c.OAuth.Kakao.ClientID) != ""
+}
+
+// NaverConfigured reports whether Naver OAuth client id is present.
+func (c *Config) NaverConfigured() bool {
+	return c != nil && strings.TrimSpace(c.OAuth.Naver.ClientID) != ""
 }
 
 // ConnectDB 함수는 데이터베이스 커넥션 풀을 생성하여 반환합니다.

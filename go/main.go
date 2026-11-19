@@ -43,6 +43,11 @@ func main() {
 	} else {
 		log.Printf("카카오 OAuth 미설정 (config.json oauth.kakao)")
 	}
+	if cfg.NaverConfigured() {
+		log.Printf("네이버 OAuth 로드 완료 - redirect=%s", cfg.NaverRedirectURI)
+	} else {
+		log.Printf("네이버 OAuth 미설정 (config.json oauth.naver)")
+	}
 
 	db, err := config.ConnectDB(cfg)
 	if err != nil {
@@ -64,7 +69,10 @@ func main() {
 
 	r.POST("/rest/get/menu", controller.GetMenu)
 	r.GET("/rest/auth/kakao/callback", controller.KakaoCallback)
+	r.GET("/rest/auth/naver/callback", controller.NaverCallback)
 	r.GET("/rest/auth/me", controller.AuthMe)
+	r.GET("/rest/auth/profile", controller.AuthProfileGet)
+	r.POST("/rest/auth/profile", controller.AuthProfileUpdate)
 	r.POST("/rest/auth/logout", controller.AuthLogout)
 	r.GET("/rest/auth/:provider", controller.StartSocialAuth)
 

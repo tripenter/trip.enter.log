@@ -148,39 +148,256 @@
     }
   }
 
+  function ensureUserShell(end) {
+    let wrap = end.querySelector("[data-nav-user-wrap]");
+    if (wrap) return wrap;
+
+    wrap = document.createElement("div");
+    wrap.className = "nav-user-wrap";
+    wrap.setAttribute("data-nav-user-wrap", "");
+    wrap.hidden = true;
+    wrap.innerHTML = `
+      <p class="nav-user-greeting" data-nav-user-greeting></p>
+      <button
+        type="button"
+        class="nav-user-menu-btn"
+        data-nav-user-toggle
+        aria-haspopup="menu"
+        aria-expanded="false"
+        aria-controls="nav-user-menu"
+        aria-label="계정 메뉴"
+      >
+        <span class="nav-user-menu-bars" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </span>
+      </button>
+      <div class="nav-user-menu" id="nav-user-menu" data-nav-user-menu role="menu" hidden>
+        <button type="button" class="nav-user-menu-item" data-nav-profile role="menuitem">프로필 수정</button>
+        <div class="nav-user-menu-spacer" aria-hidden="true"></div>
+        <button type="button" class="nav-user-logout" data-nav-logout role="menuitem">로그아웃</button>
+      </div>
+    `;
+    end.appendChild(wrap);
+    return wrap;
+  }
+
+  function loadDaumPostcode() {
+    if (window.daum && window.daum.Postcode) {
+      return Promise.resolve();
+    }
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-daum-postcode]');
+      if (existing) {
+        existing.addEventListener("load", () => resolve());
+        existing.addEventListener("error", () => reject(new Error("daum postcode load failed")));
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = "https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
+      script.async = true;
+      script.setAttribute("data-daum-postcode", "");
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error("daum postcode load failed"));
+      document.head.appendChild(script);
+    });
+  }
+
+  function setProfileOpen(open) {
+    const modal = document.querySelector("[data-profile-modal]");
+    if (!modal) return;
+    modal.hidden = !open;
+    document.body.classList.toggle("is-profile-open", open);
+    if (open) {
+      const first = modal.querySelector("[data-profile-email]");
+      if (first) first.focus();
+    }
+  }
+
+  function ensureProfileModal() {
+    let modal = document.querySelector("[data-profile-modal]");
+    if (modal) return modal;
+
+    modal = document.createElement("div");
+    modal.className = "profile-modal";
+    modal.id = "profile-modal";
+    modal.setAttribute("data-profile-modal", "");
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.setAttribute("aria-labelledby", "profile-modal-title");
+    modal.hidden = true;
+    modal.innerHTML = `
+      <div class="profile-modal-backdrop" data-profile-close tabindex="-1"></div>
+      <div class="profile-modal-panel">
+        <div class="profile-modal-head">
+          <h2 class="profile-modal-title font-display" id="profile-modal-title">프로필 수정</h2>
+          <button type="button" class="profile-modal-close" data-profile-close aria-label="닫기">×</button>
+        </div>
+        <p class="profile-modal-copy">주소·연락처·소개를 남겨 두면 여행 기록에 함께 쓸 수 있어요.</p>
+        <form class="profile-form" data-profile-form>
+          <label class="profile-field">
+            <span>이메일</span>
+            <input type="email" name="email" data-profile-email autocomplete="email" placeholder="name@example.com" />
+          </label>
+          <label class="profile-field">
+            <span>휴대전화번호</span>
+            <input type="tel" name="phone" data-profile-phone autocomplete="tel" placeholder="010-0000-0000" />
+          </label>
+          <div class="profile-field">
+            <span>주소</span>
+            <div class="profile-address-row">
+              <input type="text" name="zonecode" data-profile-zonecode readonly placeholder="우편번호" />
+              <button type="button" class="profile-address-btn" data-profile-address-search>주소 검색</button>
+            </div>
+            <input type="text" name="address" data-profile-address readonly placeholder="기본주소" />
+            <input type="text" name="address_detail" data-profile-address-detail placeholder="상세주소" autocomplete="address-line2" />
+          </div>
+          <label class="profile-field">
+            <span>자기소개</span>
+            <textarea name="intro" data-profile-intro rows="4" placeholder="짧게 소개해 주세요"></textarea>
+          </label>
+          <p class="profile-form-status" data-profile-status hidden></p>
+          <div class="profile-form-actions">
+            <button type="button" class="profile-btn-ghost" data-profile-close>취소</button>
+            <button type="submit" class="profile-btn-primary" data-profile-save>저장</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    modal.addEventListener("click", (event) => {
+      if (event.target.closest("[data-profile-close]")) setProfileOpen(false);
+    });
+
+    modal.querySelector("[data-profile-address-search]")?.addEventListener("click", async () => {
+      try {
+        await loadDaumPostcode();
+        new window.daum.Postcode({
+          oncomplete(data) {
+            const zonecode = modal.querySelector("[data-profile-zonecode]");
+            const address = modal.querySelector("[data-profile-address]");
+            const detail = modal.querySelector("[data-profile-address-detail]");
+            if (zonecode) zonecode.value = data.zonecode || "";
+            if (address) {
+              address.value = data.roadAddress || data.jibunAddress || data.address || "";
+            }
+            if (detail) detail.focus();
+          },
+        }).open();
+      } catch (err) {
+        console.error(err);
+        const status = modal.querySelector("[data-profile-status]");
+        if (status) {
+          status.hidden = false;
+          status.textContent = "주소 검색을 불러오지 못했습니다.";
+        }
+      }
+    });
+
+    modal.querySelector("[data-profile-form]")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const status = modal.querySelector("[data-profile-status]");
+      const saveBtn = modal.querySelector("[data-profile-save]");
+      const body = {
+        email: modal.querySelector("[data-profile-email]")?.value || "",
+        phone: modal.querySelector("[data-profile-phone]")?.value || "",
+        zonecode: modal.querySelector("[data-profile-zonecode]")?.value || "",
+        address: modal.querySelector("[data-profile-address]")?.value || "",
+        address_detail: modal.querySelector("[data-profile-address-detail]")?.value || "",
+        intro: modal.querySelector("[data-profile-intro]")?.value || "",
+      };
+      if (saveBtn) saveBtn.disabled = true;
+      if (status) {
+        status.hidden = false;
+        status.textContent = "저장 중…";
+      }
+      try {
+        const res = await fetch("/rest/auth/profile", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error(`profile save ${res.status}`);
+        if (status) status.textContent = "저장했습니다.";
+        setTimeout(() => setProfileOpen(false), 450);
+      } catch (err) {
+        console.error(err);
+        if (status) status.textContent = "저장에 실패했습니다. 다시 시도해 주세요.";
+      } finally {
+        if (saveBtn) saveBtn.disabled = false;
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !modal.hidden) setProfileOpen(false);
+    });
+
+    return modal;
+  }
+
+  async function openProfileEditor() {
+    setUserMenuOpen(false);
+    setAuthOpen(false);
+    const modal = ensureProfileModal();
+    const status = modal.querySelector("[data-profile-status]");
+    if (status) {
+      status.hidden = true;
+      status.textContent = "";
+    }
+    setProfileOpen(true);
+    try {
+      const res = await fetch("/rest/auth/profile", { credentials: "same-origin" });
+      if (!res.ok) throw new Error(`profile get ${res.status}`);
+      const data = await res.json();
+      const setVal = (sel, value) => {
+        const el = modal.querySelector(sel);
+        if (el) el.value = value || "";
+      };
+      setVal("[data-profile-email]", data.email);
+      setVal("[data-profile-phone]", data.phone);
+      setVal("[data-profile-zonecode]", data.zonecode);
+      setVal("[data-profile-address]", data.address);
+      setVal("[data-profile-address-detail]", data.address_detail);
+      setVal("[data-profile-intro]", data.intro);
+    } catch (err) {
+      console.error(err);
+      if (status) {
+        status.hidden = false;
+        status.textContent = "프로필을 불러오지 못했습니다.";
+      }
+    }
+  }
+
+  function setUserMenuOpen(open) {
+    const menu = document.querySelector("[data-nav-user-menu]");
+    const toggle = document.querySelector("[data-nav-user-toggle]");
+    if (!menu || !toggle) return;
+    menu.hidden = !open;
+    toggle.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+
   function renderLoggedOut(loginBtn) {
     loginBtn.hidden = false;
     loginBtn.className = "nav-login";
-    loginBtn.removeAttribute("data-nav-user");
     loginBtn.setAttribute("aria-haspopup", "dialog");
     loginBtn.setAttribute("aria-controls", "auth-modal");
     loginBtn.setAttribute("aria-label", "로그인");
     loginBtn.textContent = "로그인";
-    const menu = document.querySelector("[data-nav-user-menu]");
-    if (menu) menu.hidden = true;
+    const wrap = document.querySelector("[data-nav-user-wrap]");
+    if (wrap) wrap.hidden = true;
+    setUserMenuOpen(false);
   }
 
   function renderLoggedIn(loginBtn, nickname) {
-    loginBtn.hidden = false;
-    loginBtn.className = "nav-user";
-    loginBtn.setAttribute("data-nav-user", "");
-    loginBtn.removeAttribute("aria-haspopup");
-    loginBtn.removeAttribute("aria-controls");
-    loginBtn.setAttribute("aria-expanded", "false");
-    loginBtn.setAttribute("aria-label", `${nickname} 계정 메뉴`);
-    loginBtn.textContent = nickname;
-
-    let menu = document.querySelector("[data-nav-user-menu]");
-    if (!menu) {
-      menu = document.createElement("div");
-      menu.className = "nav-user-menu";
-      menu.setAttribute("data-nav-user-menu", "");
-      menu.hidden = true;
-      menu.innerHTML = `
-        <button type="button" class="nav-user-logout" data-nav-logout>로그아웃</button>
-      `;
-      loginBtn.parentElement.appendChild(menu);
-    }
+    const end = loginBtn.parentElement;
+    if (!end) return;
+    const wrap = ensureUserShell(end);
+    const greeting = wrap.querySelector("[data-nav-user-greeting]");
+    loginBtn.hidden = true;
+    wrap.hidden = false;
+    if (greeting) greeting.textContent = `${nickname}님 함께 떠나요`;
+    setUserMenuOpen(false);
   }
 
   async function logout() {
@@ -191,8 +408,7 @@
     }
     const loginBtn = document.querySelector("[data-nav-login]");
     if (loginBtn) renderLoggedOut(loginBtn);
-    const menu = document.querySelector("[data-nav-user-menu]");
-    if (menu) menu.hidden = true;
+    setUserMenuOpen(false);
   }
 
   async function refreshAuthUI(loginBtn) {
@@ -274,35 +490,34 @@
       document.body.appendChild(modal);
 
       loginBtn.addEventListener("click", () => {
-        if (loginBtn.hasAttribute("data-nav-user")) {
-          setNavOpen(false);
-          setAuthOpen(false);
-          const menu = document.querySelector("[data-nav-user-menu]");
-          if (!menu) return;
-          const next = menu.hidden;
-          menu.hidden = !next;
-          loginBtn.setAttribute("aria-expanded", next ? "true" : "false");
-          return;
-        }
         setNavOpen(false);
+        setUserMenuOpen(false);
         setAuthOpen(true);
       });
 
       end.addEventListener("click", (event) => {
+        if (event.target.closest("[data-nav-user-toggle]")) {
+          setNavOpen(false);
+          setAuthOpen(false);
+          setProfileOpen(false);
+          const menu = document.querySelector("[data-nav-user-menu]");
+          setUserMenuOpen(!!(menu && menu.hidden));
+          return;
+        }
+        if (event.target.closest("[data-nav-profile]")) {
+          openProfileEditor();
+          return;
+        }
         if (event.target.closest("[data-nav-logout]")) {
           logout();
         }
       });
 
       document.addEventListener("click", (event) => {
-        const menu = document.querySelector("[data-nav-user-menu]");
-        if (!menu || menu.hidden) return;
-        if (event.target.closest("[data-nav-user-menu]") || event.target.closest("[data-nav-user]")) {
-          return;
-        }
-        menu.hidden = true;
-        const userBtn = document.querySelector("[data-nav-user]");
-        if (userBtn) userBtn.setAttribute("aria-expanded", "false");
+        const wrap = document.querySelector("[data-nav-user-wrap]");
+        if (!wrap || wrap.hidden) return;
+        if (event.target.closest("[data-nav-user-wrap]")) return;
+        setUserMenuOpen(false);
       });
 
       modal.addEventListener("click", (event) => {

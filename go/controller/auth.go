@@ -44,8 +44,12 @@ func StartSocialAuth(c *gin.Context) {
 		return
 	}
 
-	if provider == "kakao" {
+	switch provider {
+	case "kakao":
 		startKakaoAuth(c)
+		return
+	case "naver":
+		startNaverAuth(c)
 		return
 	}
 
@@ -136,6 +140,88 @@ func KakaoCallback(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/?auth=ok")
 }
 
+func startNaverAuth(c *gin.Context) {
+	if appConfig == nil || !appConfig.NaverConfigured() {
+		c.Data(http.StatusServiceUnavailable, "text/html; charset=utf-8", []byte(authPendingHTML("네이버")))
+		return
+	}
+	redirectURI := strings.TrimSpace(appConfig.NaverRedirectURI)
+	if redirectURI == "" {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "naver_redirect_missing"})
+		return
+	}
+
+	state, err := randomState()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "state_failed"})
+		return
+	}
+	setOAuthState(c, state)
+
+	q := url.Values{}
+	q.Set("response_type", "code")
+	q.Set("client_id", appConfig.OAuth.Naver.ClientID)
+	q.Set("redirect_uri", redirectURI)
+	q.Set("state", state)
+
+	c.Redirect(http.StatusFound, "https://nid.naver.com/oauth2.0/authorize?"+q.Encode())
+}
+
+// NaverCallback handles Naver OAuth redirect.
+// Route: GET /rest/auth/naver/callback
+func NaverCallback(c *gin.Context) {
+	if appConfig == nil || !appConfig.NaverConfigured() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "naver_not_configured"})
+		return
+	}
+
+	if errMsg := strings.TrimSpace(c.Query("error")); errMsg != "" {
+		log.Printf("naver oauth error: %s desc=%s", errMsg, c.Query("error_description"))
+		c.Redirect(http.StatusFound, "/?auth=error")
+		return
+	}
+
+	code := strings.TrimSpace(c.Query("code"))
+	state := strings.TrimSpace(c.Query("state"))
+	if code == "" || !consumeOAuthState(c, state) {
+		c.Redirect(http.StatusFound, "/?auth=invalid_state")
+		return
+	}
+
+	token, err := exchangeNaverToken(code, state, appConfig.NaverRedirectURI)
+	if err != nil {
+		log.Printf("naver token exchange failed: %v", err)
+		c.Redirect(http.StatusFound, "/?auth=token_failed")
+		return
+	}
+
+	userID, nickname, err := fetchNaverProfile(token)
+	if err != nil {
+		log.Printf("naver profile failed: %v", err)
+		c.Redirect(http.StatusFound, "/?auth=profile_failed")
+		return
+	}
+	if nickname == "" {
+		log.Printf("naver nickname empty for user=%s; using fallback", userID)
+		nickname = "네이버사용자"
+	}
+
+	accountID, err := model.UpsertSocialUser(db, "naver", userID, nickname)
+	if err != nil {
+		log.Printf("UserAccount upsert failed: %v", err)
+		c.Redirect(http.StatusFound, "/?auth=db_failed")
+		return
+	}
+
+	if err := setLoginSession(c, "naver", userID, nickname, accountID); err != nil {
+		log.Printf("session encode failed: %v", err)
+		c.Redirect(http.StatusFound, "/?auth=session_failed")
+		return
+	}
+
+	c.Redirect(http.StatusFound, "/?auth=ok")
+}
+
 // AuthMe returns the current login session.
 // Route: GET /rest/auth/me
 func AuthMe(c *gin.Context) {
@@ -158,6 +244,84 @@ func AuthLogout(c *gin.Context) {
 	clearCookie(c, sessionCookieName)
 	clearCookie(c, oauthStateCookie)
 	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+type profileUpdateRequest struct {
+	Email         string `json:"email"`
+	Phone         string `json:"phone"`
+	Address       string `json:"address"`
+	AddressDetail string `json:"address_detail"`
+	Zonecode      string `json:"zonecode"`
+	Intro         string `json:"intro"`
+}
+
+func requireAccountSession(c *gin.Context) *sessionPayload {
+	s := readSession(c)
+	if s == nil || s.AccountID <= 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":   "unauthorized",
+			"message": "로그인이 필요합니다.",
+		})
+		return nil
+	}
+	return s
+}
+
+// AuthProfileGet returns the logged-in user's editable profile.
+// Route: GET /rest/auth/profile
+func AuthProfileGet(c *gin.Context) {
+	s := requireAccountSession(c)
+	if s == nil {
+		return
+	}
+	profile, err := model.GetUserProfile(db, s.AccountID)
+	if err != nil {
+		log.Printf("GetUserProfile failed: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "profile_load_failed"})
+		return
+	}
+	if profile == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "profile_not_found"})
+		return
+	}
+	c.JSON(http.StatusOK, profile)
+}
+
+// AuthProfileUpdate saves editable profile fields.
+// Route: POST /rest/auth/profile
+func AuthProfileUpdate(c *gin.Context) {
+	s := requireAccountSession(c)
+	if s == nil {
+		return
+	}
+
+	var req profileUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_body"})
+		return
+	}
+
+	if err := model.UpdateUserProfile(
+		db,
+		s.AccountID,
+		req.Email,
+		req.Phone,
+		req.Address,
+		req.AddressDetail,
+		req.Zonecode,
+		req.Intro,
+	); err != nil {
+		log.Printf("UpdateUserProfile failed: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "profile_save_failed"})
+		return
+	}
+
+	profile, err := model.GetUserProfile(db, s.AccountID)
+	if err != nil || profile == nil {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true, "profile": profile})
 }
 
 type kakaoTokenResponse struct {
@@ -249,6 +413,90 @@ func fetchKakaoProfile(accessToken string) (userID, nickname string, err error) 
 		log.Printf("kakao profile without nickname: %s", truncate(body, 400))
 	}
 	return strconv.FormatInt(user.ID, 10), nickname, nil
+}
+
+type naverTokenResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	Error       string `json:"error"`
+	ErrorDesc   string `json:"error_description"`
+}
+
+type naverUserResponse struct {
+	ResultCode string `json:"resultcode"`
+	Message    string `json:"message"`
+	Response   struct {
+		ID       string `json:"id"`
+		Nickname string `json:"nickname"`
+		Name     string `json:"name"`
+	} `json:"response"`
+}
+
+func exchangeNaverToken(code, state, redirectURI string) (string, error) {
+	q := url.Values{}
+	q.Set("grant_type", "authorization_code")
+	q.Set("client_id", appConfig.OAuth.Naver.ClientID)
+	q.Set("client_secret", appConfig.OAuth.Naver.ClientSecret)
+	q.Set("code", code)
+	q.Set("state", state)
+	if redirectURI != "" {
+		q.Set("redirect_uri", redirectURI)
+	}
+
+	req, err := http.NewRequest(http.MethodGet, "https://nid.naver.com/oauth2.0/token?"+q.Encode(), nil)
+	if err != nil {
+		return "", err
+	}
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	var parsed naverTokenResponse
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		return "", fmt.Errorf("token json: %w body=%s", err, truncate(body, 200))
+	}
+	if parsed.AccessToken == "" {
+		return "", fmt.Errorf("token empty: %s %s", parsed.Error, parsed.ErrorDesc)
+	}
+	return parsed.AccessToken, nil
+}
+
+func fetchNaverProfile(accessToken string) (userID, nickname string, err error) {
+	req, err := http.NewRequest(http.MethodGet, "https://openapi.naver.com/v1/nid/me", nil)
+	if err != nil {
+		return "", "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", "", err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	var user naverUserResponse
+	if err := json.Unmarshal(body, &user); err != nil {
+		return "", "", fmt.Errorf("profile json: %w body=%s", err, truncate(body, 300))
+	}
+	userID = strings.TrimSpace(user.Response.ID)
+	if userID == "" {
+		return "", "", fmt.Errorf("profile missing id: %s", truncate(body, 300))
+	}
+	nickname = strings.TrimSpace(user.Response.Nickname)
+	if nickname == "" {
+		nickname = strings.TrimSpace(user.Response.Name)
+	}
+	if nickname == "" {
+		log.Printf("naver profile without nickname: %s", truncate(body, 400))
+	}
+	return userID, nickname, nil
 }
 
 func truncate(b []byte, n int) string {

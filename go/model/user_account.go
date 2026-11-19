@@ -7,6 +7,109 @@ import (
 	"time"
 )
 
+// UserProfile is the editable profile slice of UserAccount.
+type UserProfile struct {
+	ID            int64  `json:"account_id"`
+	Provider      string `json:"provider"`
+	Nickname      string `json:"nickname"`
+	Email         string `json:"email"`
+	Phone         string `json:"phone"`
+	Address       string `json:"address"`
+	AddressDetail string `json:"address_detail"`
+	Zonecode      string `json:"zonecode"`
+	Intro         string `json:"intro"`
+}
+
+func nullString(ns sql.NullString) string {
+	if ns.Valid {
+		return ns.String
+	}
+	return ""
+}
+
+func nullable(s string) interface{} {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	return s
+}
+
+// GetUserProfile loads profile fields by UA_Id.
+func GetUserProfile(db *sql.DB, accountID int64) (*UserProfile, error) {
+	if db == nil {
+		return nil, fmt.Errorf("database not initialized")
+	}
+	if accountID <= 0 {
+		return nil, fmt.Errorf("invalid account id")
+	}
+
+	var (
+		p             UserProfile
+		email         sql.NullString
+		phone         sql.NullString
+		address       sql.NullString
+		addressDetail sql.NullString
+		zonecode      sql.NullString
+		intro         sql.NullString
+	)
+	err := db.QueryRow(`
+		SELECT UA_Id, UA_Provider, UA_Nickname,
+		       UA_Email, UA_Phone, UA_Address, UA_AddressDetail, UA_Zonecode, UA_Intro
+		FROM UserAccount
+		WHERE UA_Id = ?
+	`, accountID).Scan(
+		&p.ID, &p.Provider, &p.Nickname,
+		&email, &phone, &address, &addressDetail, &zonecode, &intro,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("select UserAccount profile: %w", err)
+	}
+	p.Email = nullString(email)
+	p.Phone = nullString(phone)
+	p.Address = nullString(address)
+	p.AddressDetail = nullString(addressDetail)
+	p.Zonecode = nullString(zonecode)
+	p.Intro = nullString(intro)
+	return &p, nil
+}
+
+// UpdateUserProfile updates editable profile fields for UA_Id.
+func UpdateUserProfile(db *sql.DB, accountID int64, email, phone, address, addressDetail, zonecode, intro string) error {
+	if db == nil {
+		return fmt.Errorf("database not initialized")
+	}
+	if accountID <= 0 {
+		return fmt.Errorf("invalid account id")
+	}
+
+	res, err := db.Exec(`
+		UPDATE UserAccount
+		SET UA_Email = ?,
+		    UA_Phone = ?,
+		    UA_Address = ?,
+		    UA_AddressDetail = ?,
+		    UA_Zonecode = ?,
+		    UA_Intro = ?,
+		    UA_UpdatedAt = ?
+		WHERE UA_Id = ?
+	`, nullable(email), nullable(phone), nullable(address), nullable(addressDetail), nullable(zonecode), nullable(intro), time.Now(), accountID)
+	if err != nil {
+		return fmt.Errorf("update UserAccount profile: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return fmt.Errorf("account not found")
+	}
+	return nil
+}
+
 // UpsertSocialUser inserts or updates a UserAccount row for a social login.
 // On insert: provider, provider user id, nickname, timestamps.
 // On update: nickname + UA_UpdatedAt (profile fields are left as-is).
