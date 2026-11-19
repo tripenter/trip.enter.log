@@ -377,6 +377,31 @@
     toggle.setAttribute("aria-expanded", open ? "true" : "false");
   }
 
+  function syncJourneyNav(nickname) {
+    const mount = document.querySelector("[data-dynamic-menu]");
+    const drawer = document.querySelector("[data-nav-drawer] .nav-drawer-inner");
+    document.querySelectorAll("[data-nav-journey]").forEach((el) => el.remove());
+    if (!nickname) return;
+
+    const label = `${nickname}의 여정`;
+    if (mount) {
+      const link = document.createElement("a");
+      link.className = "nav-journey nav-link-desktop";
+      link.href = "/journey/";
+      link.setAttribute("data-nav-journey", "");
+      link.textContent = label;
+      mount.appendChild(link);
+    }
+    if (drawer) {
+      const link = document.createElement("a");
+      link.className = "nav-journey";
+      link.href = "/journey/";
+      link.setAttribute("data-nav-journey", "");
+      link.textContent = label;
+      drawer.appendChild(link);
+    }
+  }
+
   function renderLoggedOut(loginBtn) {
     loginBtn.hidden = false;
     loginBtn.className = "nav-login";
@@ -387,6 +412,7 @@
     const wrap = document.querySelector("[data-nav-user-wrap]");
     if (wrap) wrap.hidden = true;
     setUserMenuOpen(false);
+    syncJourneyNav(null);
   }
 
   function renderLoggedIn(loginBtn, nickname) {
@@ -398,6 +424,7 @@
     wrap.hidden = false;
     if (greeting) greeting.textContent = `${nickname}님 함께 떠나요`;
     setUserMenuOpen(false);
+    syncJourneyNav(nickname);
   }
 
   async function logout() {
@@ -409,6 +436,9 @@
     const loginBtn = document.querySelector("[data-nav-login]");
     if (loginBtn) renderLoggedOut(loginBtn);
     setUserMenuOpen(false);
+    if (window.location.pathname.startsWith("/journey")) {
+      window.location.href = "/index.html";
+    }
   }
 
   async function refreshAuthUI(loginBtn) {
@@ -604,6 +634,17 @@
     const shell = ensureMobileShell(navInner);
     bindMobileNav(shell);
 
+    let nickname = null;
+    try {
+      const authRes = await fetch("/rest/auth/me", { credentials: "same-origin" });
+      if (authRes.ok) {
+        const auth = await authRes.json();
+        if (auth && auth.logged_in && auth.nickname) nickname = String(auth.nickname);
+      }
+    } catch (_) {
+      /* ignore */
+    }
+
     try {
       const res = await fetch(MENU_API, {
         method: "POST",
@@ -631,6 +672,8 @@
         </div>
       `;
     }
+
+    if (nickname) syncJourneyNav(nickname);
   }
 
   if (document.readyState === "loading") {

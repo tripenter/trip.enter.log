@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>나의 여정 — 트립엔터</title>
+    <meta name="description" content="로그인한 사용자의 시군구 여행 일기를 기록합니다." />
+    <link rel="stylesheet" href="../css/intro.css?v=journey1" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="../css/korea-map.css?v=covNowrap1" />
+    <link rel="stylesheet" href="../css/journey.css?v=journey1" />
+  </head>
+  <body class="page-journey">
+    <header class="site-nav" role="banner">
+      <nav class="nav-inner" aria-label="주메뉴">
+        <a class="nav-brand font-display" href="/index.html">트립엔터<span class="enter-glyph" aria-hidden="true">⏎</span></a>
+        <div class="nav-dynamic" data-dynamic-menu aria-live="polite"></div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="section section-map journey-section" aria-label="나의 여행 일기 지도">
+        <div class="section-inner section-inner-map">
+          <p class="section-kicker font-mono">// journey.diary</p>
+          <h1 class="section-title font-display" data-journey-title>나의 여정</h1>
+          <p class="section-copy" data-journey-copy>
+            시·군·구를 눌러 사진과 제목, 내용을 남기세요. 기록이 있는 지역은 지도에 표시됩니다.
+          </p>
+          <div class="korea-map-frame">
+            <div id="korea-map" class="korea-map" role="application" aria-label="여행 일기용 대한민국 지도"></div>
+            <p class="korea-map-status font-mono" data-korea-status>로그인 후 지역을 클릭해 일기를 작성하세요.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p class="font-display" style="color: #1a2b33">트립엔터</p>
+      <p class="mt-2">세상의 모든 장소를 코드로 기록합니다</p>
+    </footer>
+
+    <script src="../js/menu.js?v=journey1" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>
+    <script src="../js/korea-sig-map.js?v=core9" defer></script>
+    <script src="../js/journey-map.js?v=journey2" defer></script>
+  </body>
+</html>

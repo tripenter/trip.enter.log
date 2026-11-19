@@ -274,6 +274,32 @@ body {
   outline: none;
 }
 
+.nav-journey {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 0.7rem;
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.nav-journey:hover,
+.nav-journey:focus-visible {
+  color: var(--pine);
+  outline: none;
+}
+
+.nav-drawer .nav-journey {
+  display: block;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border-top: 1px solid rgba(26, 43, 51, 0.08);
+}
+
 .nav-user-wrap {
   position: relative;
   display: inline-flex;

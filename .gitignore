@@ -36,3 +36,4 @@ go/dev_secret/
 server
 scratch/
 .DS_Store
+web/uploads/

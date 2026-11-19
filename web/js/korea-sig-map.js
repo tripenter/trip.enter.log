@@ -677,7 +677,9 @@
       }).addTo(map);
     };
 
-    const bindRegions = () => {
+    let viewInitialized = false;
+
+    const bindRegions = ({ resetView = false } = {}) => {
       if (geoLayer) {
         map.removeLayer(geoLayer);
         geoLayer = null;
@@ -751,12 +753,16 @@
       }).addTo(map);
 
       paintActiveOverlays();
-      map.fitBounds(geoLayer.getBounds(), { padding: [24, 24], maxZoom: 9 });
-      const overviewZoom = map.getZoom();
-      const startZoom = overviewZoom + zoomOffset;
-      map.setView(map.getCenter(), startZoom, { animate: false });
-      map.setMinZoom(startZoom);
-      map.setMaxZoom(startZoom);
+      // 초기 1회만 fitBounds/zoom 고정. 일기 저장 후 setItems 시 재확대 방지.
+      if (!viewInitialized || resetView) {
+        map.fitBounds(geoLayer.getBounds(), { padding: [24, 24], maxZoom: 9 });
+        const overviewZoom = map.getZoom();
+        const startZoom = overviewZoom + zoomOffset;
+        map.setView(map.getCenter(), startZoom, { animate: false });
+        map.setMinZoom(startZoom);
+        map.setMaxZoom(startZoom);
+        viewInitialized = true;
+      }
     };
 
     const setItems = (items) => {
@@ -770,7 +776,7 @@
       if (collection) {
         dismissHoverPopup();
         dismissEmptyPopup();
-        bindRegions();
+        bindRegions({ resetView: false });
         setStatus(itemCount ? withItemsStatus : idleStatus);
       }
     };

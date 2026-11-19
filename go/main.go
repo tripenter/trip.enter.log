@@ -82,9 +82,22 @@ func main() {
 	r.POST("/rest/auth/logout", controller.AuthLogout)
 	r.GET("/rest/auth/:provider", controller.StartSocialAuth)
 
+	r.GET("/rest/diary/mine", controller.ListMyDiaries)
+	r.GET("/rest/diary/by-region", controller.GetDiaryByRegion)
+	r.POST("/rest/diary", controller.SaveDiary)
+
 	// 로컬·배포 공통: web 정적 파일 (배포 시 cwd에 index.html, 로컬은 ../web)
 	if webRoot := resolveWebRoot(); webRoot != "" {
 		log.Printf("정적 웹 루트: %s", webRoot)
+		uploadDir := filepath.Join(webRoot, "uploads")
+		if err := os.MkdirAll(uploadDir, 0o755); err != nil {
+			log.Printf("uploads 디렉터리 생성 실패: %v", err)
+		} else {
+			controller.SetUploadRoot(uploadDir)
+			log.Printf("업로드 루트: %s", uploadDir)
+		}
+		r.MaxMultipartMemory = 64 << 20 // 64 MiB
+		r.Static("/uploads", uploadDir)
 		fileServer := http.FileServer(http.Dir(webRoot))
 		r.NoRoute(func(c *gin.Context) {
 			if c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead {
