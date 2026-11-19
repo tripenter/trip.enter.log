@@ -480,10 +480,6 @@
               <span class="auth-provider-mark" aria-hidden="true">G</span>
               <span>구글로 계속하기</span>
             </a>
-            <a class="auth-provider auth-provider-apple" href="/rest/auth/apple">
-              <span class="auth-provider-mark" aria-hidden="true">A</span>
-              <span>Apple로 계속하기</span>
-            </a>
           </div>
         </div>
       `;

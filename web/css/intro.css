@@ -1429,17 +1429,6 @@ body.is-nav-locked {
   color: #4285f4;
 }
 
-.auth-provider-apple {
-  background: #111;
-  border-color: #111;
-  color: #fff;
-}
-
-.auth-provider-apple .auth-provider-mark {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-}
-
 body.is-auth-open {
   overflow: hidden;
 }

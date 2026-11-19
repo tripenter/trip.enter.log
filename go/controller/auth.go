@@ -23,7 +23,6 @@ var supportedProviders = map[string]string{
 	"kakao":  "카카오",
 	"naver":  "네이버",
 	"google": "구글",
-	"apple":  "애플",
 }
 
 // SetAppConfig stores runtime config for OAuth handlers.
