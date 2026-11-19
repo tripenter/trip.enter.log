@@ -24,15 +24,37 @@ type DatabaseConfig struct {
 	Name     string `json:"name"`
 }
 
+// OAuthRedirectURIs holds env-specific callback URLs from config.json.
+type OAuthRedirectURIs struct {
+	Debug   string `json:"debug"`
+	Release string `json:"release"`
+}
+
+// KakaoOAuthConfig is Kakao login credentials loaded from config.json (not hardcoded).
+type KakaoOAuthConfig struct {
+	ClientID     string            `json:"client_id"`
+	ClientSecret string            `json:"client_secret"`
+	RedirectURIs OAuthRedirectURIs `json:"redirect_uris"`
+}
+
+// OAuthConfig groups social login providers.
+type OAuthConfig struct {
+	Kakao KakaoOAuthConfig `json:"kakao"`
+}
+
 type Config struct {
 	Server   ServerConfig   `json:"server"`
 	Database DatabaseConfig `json:"-"`
+	OAuth    OAuthConfig    `json:"oauth"`
+	// KakaoRedirectURI is selected by APP_DEBUG (debug vs release).
+	KakaoRedirectURI string `json:"-"`
 }
 
 type configFile struct {
-	Server     ServerConfig     `json:"server"`
-	Databases  []DatabaseConfig `json:"databases"`
-	Database   *DatabaseConfig  `json:"database"` // legacy single-object fallback
+	Server    ServerConfig     `json:"server"`
+	OAuth     OAuthConfig      `json:"oauth"`
+	Databases []DatabaseConfig `json:"databases"`
+	Database  *DatabaseConfig  `json:"database"` // legacy single-object fallback
 }
 
 // WantDebugDB returns whether the debug database should be used.
@@ -85,10 +107,22 @@ func LoadConfigWithDebug(configPath string, debug bool) (*Config, error) {
 		return nil, fmt.Errorf("debug=%v 인 데이터베이스 설정을 찾을 수 없습니다", debug)
 	}
 
+	redirect := raw.OAuth.Kakao.RedirectURIs.Release
+	if debug {
+		redirect = raw.OAuth.Kakao.RedirectURIs.Debug
+	}
+
 	return &Config{
-		Server:   raw.Server,
-		Database: *selected,
+		Server:           raw.Server,
+		Database:         *selected,
+		OAuth:            raw.OAuth,
+		KakaoRedirectURI: redirect,
 	}, nil
+}
+
+// KakaoConfigured reports whether Kakao OAuth client id is present.
+func (c *Config) KakaoConfigured() bool {
+	return c != nil && strings.TrimSpace(c.OAuth.Kakao.ClientID) != ""
 }
 
 // ConnectDB 함수는 데이터베이스 커넥션 풀을 생성하여 반환합니다.

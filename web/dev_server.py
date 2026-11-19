@@ -111,28 +111,18 @@ class RestProxyHandler(http.server.SimpleHTTPRequestHandler):
                 continue
             req.add_header(key, value)
 
+        # Do not follow upstream redirects (OAuth Set-Cookie + Location must reach the browser).
+        class _NoRedirect(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
+                return None
+
+        opener = urllib.request.build_opener(_NoRedirect)
         try:
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                data = resp.read()
-                self.send_response(resp.status)
-                for key, value in resp.headers.items():
-                    if key.lower() in {"transfer-encoding", "connection", "content-encoding"}:
-                        continue
-                    if key.lower() == "content-length":
-                        continue
-                    self.send_header(key, value)
-                self.send_header("Content-Length", str(len(data)))
-                self.end_headers()
-                if self.command != "HEAD":
-                    self.wfile.write(data)
+            with opener.open(req, timeout=60) as resp:
+                self._write_proxied(resp.status, resp.headers, resp.read())
         except urllib.error.HTTPError as err:
-            data = err.read() or b""
-            self.send_response(err.code)
-            self.send_header("Content-Type", err.headers.get("Content-Type", "text/plain"))
-            self.send_header("Content-Length", str(len(data)))
-            self.end_headers()
-            if self.command != "HEAD" and data:
-                self.wfile.write(data)
+            # 3xx with no-redirect lands here; forward Location / Set-Cookie intact.
+            self._write_proxied(err.code, err.headers, err.read() or b"")
         except Exception as err:  # noqa: BLE001 — surface upstream failure to browser
             msg = f"Bad Gateway: cannot reach Go API at {self.api_base} ({err})".encode()
             self.send_response(http.HTTPStatus.BAD_GATEWAY)
@@ -141,6 +131,17 @@ class RestProxyHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             if self.command != "HEAD":
                 self.wfile.write(msg)
+
+    def _write_proxied(self, status: int, headers, data: bytes) -> None:  # noqa: ANN001
+        self.send_response(status)
+        for key, value in headers.items():
+            if key.lower() in {"transfer-encoding", "connection", "content-encoding", "content-length"}:
+                continue
+            self.send_header(key, value)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        if self.command != "HEAD" and data:
+            self.wfile.write(data)
 
 
 class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):

@@ -240,6 +240,7 @@ body {
 
 /* —— Mobile hamburger / drawer —— */
 .nav-end {
+  position: relative;
   margin-left: auto;
   display: inline-flex;
   align-items: center;
@@ -270,6 +271,73 @@ body {
   background: rgba(47, 111, 94, 0.08);
   border-color: rgba(47, 111, 94, 0.28);
   color: var(--pine);
+  outline: none;
+}
+
+.nav-user {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 9.5rem;
+  min-height: 2rem;
+  padding: 0 0.85rem;
+  border: 1px solid rgba(26, 43, 51, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-user:hover,
+.nav-user:focus-visible {
+  background: rgba(47, 111, 94, 0.08);
+  border-color: rgba(47, 111, 94, 0.28);
+  color: var(--pine);
+  outline: none;
+}
+
+.nav-user-menu {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  z-index: 80;
+  min-width: 8.5rem;
+  padding: 0.35rem;
+  border: 1px solid rgba(26, 43, 51, 0.1);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(26, 43, 51, 0.14);
+}
+
+.nav-user-menu[hidden] {
+  display: none !important;
+}
+
+.nav-user-logout {
+  width: 100%;
+  min-height: 2.1rem;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nav-user-logout:hover,
+.nav-user-logout:focus-visible {
+  background: rgba(26, 43, 51, 0.06);
   outline: none;
 }
 
@@ -978,18 +1046,18 @@ body.is-nav-locked {
 .auth-modal {
   position: fixed;
   inset: 0;
-  z-index: 300;
+  /* Leaflet panes go up to ~700; keep the dialog above the map. */
+  z-index: 10000;
   display: grid;
   place-items: center;
   padding: 1.25rem;
+  isolation: isolate;
 }
 
 .auth-modal-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(14, 28, 34, 0.42);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: rgba(14, 28, 34, 0.55);
 }
 
 .auth-modal-panel {
@@ -1000,7 +1068,7 @@ body.is-nav-locked {
   border: 1px solid rgba(26, 43, 51, 0.1);
   border-radius: 14px;
   background: #fff;
-  box-shadow: 0 18px 48px rgba(26, 43, 51, 0.16);
+  box-shadow: 0 18px 48px rgba(26, 43, 51, 0.22);
 }
 
 .auth-modal-head {

@@ -148,6 +148,69 @@
     }
   }
 
+  function renderLoggedOut(loginBtn) {
+    loginBtn.hidden = false;
+    loginBtn.className = "nav-login";
+    loginBtn.removeAttribute("data-nav-user");
+    loginBtn.setAttribute("aria-haspopup", "dialog");
+    loginBtn.setAttribute("aria-controls", "auth-modal");
+    loginBtn.setAttribute("aria-label", "로그인");
+    loginBtn.textContent = "로그인";
+    const menu = document.querySelector("[data-nav-user-menu]");
+    if (menu) menu.hidden = true;
+  }
+
+  function renderLoggedIn(loginBtn, nickname) {
+    loginBtn.hidden = false;
+    loginBtn.className = "nav-user";
+    loginBtn.setAttribute("data-nav-user", "");
+    loginBtn.removeAttribute("aria-haspopup");
+    loginBtn.removeAttribute("aria-controls");
+    loginBtn.setAttribute("aria-expanded", "false");
+    loginBtn.setAttribute("aria-label", `${nickname} 계정 메뉴`);
+    loginBtn.textContent = nickname;
+
+    let menu = document.querySelector("[data-nav-user-menu]");
+    if (!menu) {
+      menu = document.createElement("div");
+      menu.className = "nav-user-menu";
+      menu.setAttribute("data-nav-user-menu", "");
+      menu.hidden = true;
+      menu.innerHTML = `
+        <button type="button" class="nav-user-logout" data-nav-logout>로그아웃</button>
+      `;
+      loginBtn.parentElement.appendChild(menu);
+    }
+  }
+
+  async function logout() {
+    try {
+      await fetch("/rest/auth/logout", { method: "POST", credentials: "same-origin" });
+    } catch (err) {
+      console.error("logout failed:", err);
+    }
+    const loginBtn = document.querySelector("[data-nav-login]");
+    if (loginBtn) renderLoggedOut(loginBtn);
+    const menu = document.querySelector("[data-nav-user-menu]");
+    if (menu) menu.hidden = true;
+  }
+
+  async function refreshAuthUI(loginBtn) {
+    try {
+      const res = await fetch("/rest/auth/me", { credentials: "same-origin" });
+      if (!res.ok) throw new Error(`auth me ${res.status}`);
+      const data = await res.json();
+      if (data && data.logged_in && data.nickname) {
+        renderLoggedIn(loginBtn, String(data.nickname));
+      } else {
+        renderLoggedOut(loginBtn);
+      }
+    } catch (err) {
+      console.error("Failed to load auth session:", err);
+      renderLoggedOut(loginBtn);
+    }
+  }
+
   function ensureAuthUI(navInner) {
     let end = navInner.querySelector("[data-nav-end]");
     if (!end) {
@@ -211,8 +274,35 @@
       document.body.appendChild(modal);
 
       loginBtn.addEventListener("click", () => {
+        if (loginBtn.hasAttribute("data-nav-user")) {
+          setNavOpen(false);
+          setAuthOpen(false);
+          const menu = document.querySelector("[data-nav-user-menu]");
+          if (!menu) return;
+          const next = menu.hidden;
+          menu.hidden = !next;
+          loginBtn.setAttribute("aria-expanded", next ? "true" : "false");
+          return;
+        }
         setNavOpen(false);
         setAuthOpen(true);
+      });
+
+      end.addEventListener("click", (event) => {
+        if (event.target.closest("[data-nav-logout]")) {
+          logout();
+        }
+      });
+
+      document.addEventListener("click", (event) => {
+        const menu = document.querySelector("[data-nav-user-menu]");
+        if (!menu || menu.hidden) return;
+        if (event.target.closest("[data-nav-user-menu]") || event.target.closest("[data-nav-user]")) {
+          return;
+        }
+        menu.hidden = true;
+        const userBtn = document.querySelector("[data-nav-user]");
+        if (userBtn) userBtn.setAttribute("aria-expanded", "false");
       });
 
       modal.addEventListener("click", (event) => {
@@ -224,6 +314,7 @@
       });
     }
 
+    refreshAuthUI(loginBtn);
     return { end, loginBtn, modal };
   }
 

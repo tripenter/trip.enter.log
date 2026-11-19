@@ -38,6 +38,11 @@ func main() {
 
 	log.Printf("DB 설정 로드 완료 - debug=%v, 호스트: %s, 계정: %s, DB명: %s",
 		cfg.Database.Debug, cfg.Database.Host, cfg.Database.User, cfg.Database.Name)
+	if cfg.KakaoConfigured() {
+		log.Printf("카카오 OAuth 로드 완료 - redirect=%s", cfg.KakaoRedirectURI)
+	} else {
+		log.Printf("카카오 OAuth 미설정 (config.json oauth.kakao)")
+	}
 
 	db, err := config.ConnectDB(cfg)
 	if err != nil {
@@ -45,6 +50,7 @@ func main() {
 	}
 	defer db.Close()
 	controller.SetDB(db)
+	controller.SetAppConfig(cfg)
 
 	r := gin.Default()
 
@@ -57,6 +63,9 @@ func main() {
 	})
 
 	r.POST("/rest/get/menu", controller.GetMenu)
+	r.GET("/rest/auth/kakao/callback", controller.KakaoCallback)
+	r.GET("/rest/auth/me", controller.AuthMe)
+	r.POST("/rest/auth/logout", controller.AuthLogout)
 	r.GET("/rest/auth/:provider", controller.StartSocialAuth)
 
 	// 로컬·배포 공통: web 정적 파일 (배포 시 cwd에 index.html, 로컬은 ../web)
