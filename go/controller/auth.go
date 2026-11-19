@@ -313,7 +313,7 @@ func GoogleCallback(c *gin.Context) {
 // AuthMe returns the current login session.
 // Route: GET /rest/auth/me
 func AuthMe(c *gin.Context) {
-	s := readSession(c)
+	s := ensureAccountSession(c)
 	if s == nil {
 		c.JSON(http.StatusOK, gin.H{"logged_in": false})
 		return
@@ -343,8 +343,36 @@ type profileUpdateRequest struct {
 	Intro         string `json:"intro"`
 }
 
-func requireAccountSession(c *gin.Context) *sessionPayload {
+// ensureAccountSession reads the cookie and, for older cookies without
+// account_id, looks up UserAccount and refreshes the session cookie.
+func ensureAccountSession(c *gin.Context) *sessionPayload {
 	s := readSession(c)
+	if s == nil {
+		return nil
+	}
+	if s.AccountID > 0 {
+		return s
+	}
+	if strings.TrimSpace(s.Provider) == "" || strings.TrimSpace(s.UserID) == "" {
+		return nil
+	}
+	id, err := model.FindAccountIDByProviderUser(db, s.Provider, s.UserID)
+	if err != nil {
+		log.Printf("FindAccountIDByProviderUser: %v", err)
+		return nil
+	}
+	if id <= 0 {
+		return nil
+	}
+	s.AccountID = id
+	if err := setLoginSession(c, s.Provider, s.UserID, s.Nickname, s.AccountID); err != nil {
+		log.Printf("refresh session with account_id failed: %v", err)
+	}
+	return s
+}
+
+func requireAccountSession(c *gin.Context) *sessionPayload {
+	s := ensureAccountSession(c)
 	if s == nil || s.AccountID <= 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error":   "unauthorized",

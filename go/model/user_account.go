@@ -110,6 +110,31 @@ func UpdateUserProfile(db *sql.DB, accountID int64, email, phone, address, addre
 	return nil
 }
 
+// FindAccountIDByProviderUser returns UA_Id for a social identity, or 0 if missing.
+func FindAccountIDByProviderUser(db *sql.DB, provider, providerUserID string) (int64, error) {
+	if db == nil {
+		return 0, fmt.Errorf("database not initialized")
+	}
+	provider = strings.TrimSpace(provider)
+	providerUserID = strings.TrimSpace(providerUserID)
+	if provider == "" || providerUserID == "" {
+		return 0, fmt.Errorf("provider and provider user id are required")
+	}
+	var id int64
+	err := db.QueryRow(`
+		SELECT UA_Id
+		FROM UserAccount
+		WHERE UA_Provider = ? AND UA_ProviderUserId = ?
+	`, provider, providerUserID).Scan(&id)
+	if err == sql.ErrNoRows {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("select UserAccount id: %w", err)
+	}
+	return id, nil
+}
+
 // UpsertSocialUser inserts or updates a UserAccount row for a social login.
 // On insert: provider, provider user id, nickname, timestamps.
 // On update: nickname + UA_UpdatedAt (profile fields are left as-is).

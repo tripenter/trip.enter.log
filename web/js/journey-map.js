@@ -331,7 +331,25 @@
         credentials: "same-origin",
         body: form,
       });
-      if (!res.ok) throw new Error(`save ${res.status}`);
+      let payload = null;
+      try {
+        payload = await res.json();
+      } catch (_) {
+        payload = null;
+      }
+      if (res.status === 401) {
+        if (status) status.textContent = "로그인이 만료되었습니다. 다시 로그인해 주세요.";
+        setTimeout(() => {
+          window.location.href = "/index.html";
+        }, 800);
+        return;
+      }
+      if (!res.ok) {
+        const msg =
+          (payload && (payload.message || payload.error)) ||
+          `save ${res.status}`;
+        throw new Error(msg);
+      }
       if (status) status.textContent = "저장했습니다.";
       setTimeout(() => {
         setJourneyOpen(false);
@@ -339,7 +357,12 @@
       }, 400);
     } catch (err) {
       console.error(err);
-      if (status) status.textContent = "저장에 실패했습니다. 다시 시도해 주세요.";
+      if (status) {
+        const detail = err && err.message ? String(err.message) : "";
+        status.textContent = detail && detail !== "save failed"
+          ? `저장에 실패했습니다. (${detail})`
+          : "저장에 실패했습니다. 다시 시도해 주세요.";
+      }
     } finally {
       if (saveBtn) saveBtn.disabled = false;
     }
@@ -400,7 +423,7 @@
   async function boot() {
     const meRes = await fetch("/rest/auth/me", { credentials: "same-origin" });
     const me = meRes.ok ? await meRes.json() : null;
-    if (!me || !me.logged_in) {
+    if (!me || !me.logged_in || !me.account_id) {
       window.location.href = "/index.html";
       return;
     }
