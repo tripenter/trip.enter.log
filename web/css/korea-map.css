@@ -25,8 +25,8 @@
 }
 
 .korea-map {
-  /* 뷰포트 한 화면에 남한(제주 포함)이 들어오도록 높이 제한 */
-  height: clamp(560px, 72vh, 820px);
+  /* 표시 캔버스 세로만 키움(지도 배율과 무관). 1098→1537, 141vh→197vh, 1607→2250 */
+  height: clamp(1537px, 197vh, 2250px);
   background:
     radial-gradient(ellipse at 50% 40%, rgba(167, 220, 200, 0.28), transparent 62%),
     #e7f3f8;
@@ -365,7 +365,8 @@
 
 @media (max-width: 720px) {
   .korea-map {
-    height: min(134vh, 1244px);
+    /* 모바일 캔버스 세로만 키움 */
+    height: min(368vh, 3415px);
   }
 
   .leaflet-tooltip.korea-name-label {

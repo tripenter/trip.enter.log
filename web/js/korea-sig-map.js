@@ -475,8 +475,8 @@
       options.dokdoUrl === null || options.dokdoUrl === false
         ? ""
         : options.dokdoUrl || DEFAULT_DOKDO_URL;
-    // 남한 전체가 보이도록 fitBounds 결과를 기본으로 쓴다. 양수 offset은 확대라 제주·북단이 잘릴 수 있음.
-    const zoomOffset = Number.isFinite(options.zoomOffset) ? options.zoomOffset : 0;
+    // fitBounds 이후 추가 확대/축소 단계. 기본 1단계 확대.
+    const zoomOffset = Number.isFinite(options.zoomOffset) ? options.zoomOffset : 1;
     // 다른 지역에 마우스를 올리면 기본적으로 0.5초 후 호버 팝업을 닫는다.
     const popupHideDelay = Number.isFinite(options.popupHideDelay) ? options.popupHideDelay : 500;
     const emptyClickDuration = Number.isFinite(options.emptyClickDuration) ? options.emptyClickDuration : 3000;
@@ -499,6 +499,8 @@
       attributionControl: false,
       zoomControl: false,
       minZoom: 6,
+      zoomSnap: 0,
+      zoomDelta: 0.5,
     });
 
     map.createPane("korea-menu-fill");
@@ -800,33 +802,22 @@
         if (dokdoLayer) {
           southBounds = southBounds.extend(dokdoLayer.getBounds());
         }
-        const fitOpts = {
-          paddingTopLeft: [20, 32],
-          paddingBottomRight: [20, 44],
+        // 캔버스가 세로로 커져도 배율은 기준 높이(820px)에 맞춘다.
+        // 남는 세로는 상·하 패딩으로 흡수 → 지도 확대처럼 보이지 않음.
+        const size = map.getSize();
+        const refHeight = 820;
+        const surplusY = Math.max(0, size.y - refHeight);
+        const padX = 20;
+        const padTop = 32 + Math.floor(surplusY / 2);
+        const padBottom = 44 + Math.ceil(surplusY / 2);
+        map.fitBounds(southBounds, {
+          paddingTopLeft: [padX, padTop],
+          paddingBottomRight: [padX, padBottom],
           maxZoom: 8,
           animate: false,
-        };
-        map.fitBounds(southBounds, fitOpts);
-        // 남한 네 모서리가 모두 들어오는지 확인하고, 안 되면 한 단계 축소
-        const corners = [
-          southBounds.getNorthWest(),
-          southBounds.getNorthEast(),
-          southBounds.getSouthWest(),
-          southBounds.getSouthEast(),
-        ];
-        let startZoom = map.getZoom();
-        const fullyInside = () => {
-          const view = map.getBounds();
-          return corners.every((c) => view.contains(c));
-        };
-        if (!fullyInside() && startZoom > 1) {
-          map.setZoom(startZoom - 1, { animate: false });
-          startZoom = map.getZoom();
-        }
-        if (zoomOffset < 0) {
-          startZoom = Math.max(1, startZoom + zoomOffset);
-          map.setView(map.getCenter(), startZoom, { animate: false });
-        }
+        });
+        let startZoom = map.getZoom() + zoomOffset;
+        if (startZoom < 1) startZoom = 1;
         map.setView(map.getCenter(), startZoom, { animate: false });
         map.setMinZoom(startZoom);
         map.setMaxZoom(startZoom);

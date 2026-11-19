@@ -440,7 +440,7 @@
       el: "#korea-map",
       statusEl: "[data-korea-status]",
       geoUrl: "../data/korea-sig.geojson",
-      zoomOffset: 0,
+      zoomOffset: 1,
       messages: {
         idle: "시·군·구를 클릭하면 여행 일기를 작성할 수 있습니다.",
         withItems: "기록이 있는 지역은 강조됩니다. 클릭해 일기를 편집하세요.",

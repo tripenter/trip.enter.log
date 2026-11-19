@@ -219,7 +219,7 @@
       el: "#korea-map",
       statusEl: "[data-korea-status]",
       geoUrl: "./data/korea-sig.geojson",
-      zoomOffset: 0,
+      zoomOffset: 1,
       messages: {
         idle: "시·군·구에 올리면 메뉴가 보이고, 없으면 클릭 시 안내가 보입니다.",
         withItems: "메뉴가 있는 지역에 올리면 목록에서 선택할 수 있습니다.",
