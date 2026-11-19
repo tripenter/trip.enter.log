@@ -31,6 +31,11 @@
   - Host: `https://trip-enter.duckdns.org`
 - **Go + Gin REST 서버**
   - Cursor로 구축 예정 / 구축 중 (`./go/`)
+  - **로컬 포트 고정: `10000`** (`go/dev_secret/config.json` → `server.port`)
+- **로컬 웹 서버 (Python 프록시)**
+  - **포트 고정: `8080`** — `python3 web/dev_server.py`
+  - 정적 `web/` + `/rest/*` → Go `:10000` (운영 nginx와 동일 패턴)
+  - 프론트는 `/rest/...` 상대 경로 유지 (JS에 API 호스트 하드코딩 금지)
 - **서버에서 동작하는 Python 3**
 - **MariaDB 서버**
   - 접속 정보는 `go/dev_secret/config.json`의 `databases`를 따른다.

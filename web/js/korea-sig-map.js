@@ -315,6 +315,39 @@
     return `one:${district.code}`;
   }
 
+  /**
+   * WM_Region 등 GeoJSON properties.name 과 동일한 시·군·구명으로 매칭한다.
+   * scope(광역 prefix Set)가 있으면 그 안에서만 찾고, 동명(중구 등)을 좁힌다.
+   */
+  function matchDistrictByRegion(region, districts, scope) {
+    const name = String(region || "").replace(/\s+/g, "").trim();
+    if (!name) return null;
+    const scopeSet = scope instanceof Set ? scope : new Set(scope || []);
+    const pool = scopeSet.size
+      ? districts.filter((district) => scopeSet.has(district.prefix))
+      : districts;
+    const hits = pool.filter((district) => String(district.name || "").replace(/\s+/g, "") === name);
+    if (!hits.length) return null;
+
+    // 동명이 여러 개면 scope 밖 전국 검색은 거부(잘못된 지역 하이라이트 방지)
+    if (hits.length > 1 && !scopeSet.size) return null;
+
+    let lat = 0;
+    let lng = 0;
+    hits.forEach((district) => {
+      lat += district.lat;
+      lng += district.lng;
+    });
+    return {
+      lat: lat / hits.length,
+      lng: lng / hits.length,
+      label: hits.length === 1 ? formatName(hits[0].name) : formatName(name),
+      anchorKey: hits.length === 1 ? `one:${hits[0].code}` : `region:${name}`,
+      codes: hits.map((district) => district.code),
+      districts: hits,
+    };
+  }
+
   function matchDistrictByTitle(title, districts, scope) {
     const text = String(title || "").replace(/\s+/g, "");
     if (!text) return null;
@@ -797,6 +830,7 @@
     formatName,
     displayDistrictName,
     buildDistricts,
+    matchDistrictByRegion,
     matchDistrictByTitle,
     prefixesFromContext,
     indexItemsByCode,

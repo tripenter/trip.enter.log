@@ -172,11 +172,53 @@ ORDER BY WM_SortOrder, WM_Id;
     return rows
 
 
+def resolve_region_name(region: str | None, folder: str | None) -> str | None:
+    """Normalize region via resolve_region.py. Raises ValueError when user must choose."""
+    if region is None or str(region).strip() == "":
+        return None
+
+    script = Path(__file__).resolve().parent / "resolve_region.py"
+    cmd = [sys.executable, str(script), "--query", str(region).strip()]
+    if folder:
+        cmd.extend(["--folder", str(folder).strip()])
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    raw_out = (result.stdout or "").strip()
+    if result.returncode != 0 and not raw_out:
+        err = (result.stderr or "").strip() or "지역명 해석 실패"
+        raise ValueError(err)
+
+    try:
+        payload = json.loads(raw_out)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"지역명 해석 결과 JSON 파싱 실패: {raw_out[:200]!r}") from exc
+
+    status = payload.get("status")
+    if status == "matched" and payload.get("region"):
+        return str(payload["region"])
+    if status == "empty":
+        return None
+
+    lines = [
+        f"지역명 {region!r} 을(를) 지도 시·군·구로 확정하지 못했습니다.",
+        payload.get("reason") or "",
+        "후보 목록:",
+    ]
+    for item in payload.get("candidates") or []:
+        lines.append(
+            f"  {item.get('index')}. {item.get('label')} ({item.get('name')}, code={item.get('code')})"
+        )
+    lines.append(
+        "스킬 절차: resolve_region.py로 후보를 보여 준 뒤 사용자 선택 번호의 name을 --region 으로 넣으세요."
+    )
+    raise ValueError("\n".join(line for line in lines if line is not None))
+
+
 def build_insert_sql(
     *,
     parent_id: int | None,
     title: str,
     folder: str | None,
+    region: str | None,
     new_sort: int,
     active: int,
     wm_id: int | None,
@@ -186,23 +228,27 @@ def build_insert_sql(
         folder_sql = "NULL"
     else:
         folder_sql = f"'{mysql_escape(folder)}'"
+    if region is None or region == "":
+        region_sql = "NULL"
+    else:
+        region_sql = f"'{mysql_escape(region)}'"
     title_sql = f"'{mysql_escape(title)}'"
 
     if wm_id is None:
         insert = f"""
 INSERT INTO WebMenu (
-  WM_ParentId, WM_Title, WM_Folder, WM_SortOrder, WM_IsActive, WM_CreatedAt, WM_UpdatedAt
+  WM_ParentId, WM_Title, WM_Folder, WM_Region, WM_SortOrder, WM_IsActive, WM_CreatedAt, WM_UpdatedAt
 ) VALUES (
-  {parent_sql}, {title_sql}, {folder_sql}, {new_sort}, {int(active)}, NOW(), NOW()
+  {parent_sql}, {title_sql}, {folder_sql}, {region_sql}, {new_sort}, {int(active)}, NOW(), NOW()
 );
 SELECT LAST_INSERT_ID() AS WM_Id, {new_sort} AS WM_SortOrder;
 """
     else:
         insert = f"""
 INSERT INTO WebMenu (
-  WM_Id, WM_ParentId, WM_Title, WM_Folder, WM_SortOrder, WM_IsActive, WM_CreatedAt, WM_UpdatedAt
+  WM_Id, WM_ParentId, WM_Title, WM_Folder, WM_Region, WM_SortOrder, WM_IsActive, WM_CreatedAt, WM_UpdatedAt
 ) VALUES (
-  {int(wm_id)}, {parent_sql}, {title_sql}, {folder_sql}, {new_sort}, {int(active)}, NOW(), NOW()
+  {int(wm_id)}, {parent_sql}, {title_sql}, {folder_sql}, {region_sql}, {new_sort}, {int(active)}, NOW(), NOW()
 );
 SELECT {int(wm_id)} AS WM_Id, {new_sort} AS WM_SortOrder;
 """
@@ -240,6 +286,11 @@ def main() -> int:
     )
     parser.add_argument("--parent-id", type=int, default=None, help="WM_ParentId (omit for top-level)")
     parser.add_argument("--folder", default=None, help="WM_Folder (omit for NULL)")
+    parser.add_argument(
+        "--region",
+        default=None,
+        help="WM_Region 시·군·구 지역명 (예: 영월군). omit for NULL",
+    )
     parser.add_argument("--title", required=True, help="WM_Title")
     parser.add_argument(
         "--after",
@@ -275,6 +326,14 @@ def main() -> int:
             return 2
         new_sort = args.after + 1
 
+    try:
+        resolved_region = resolve_region_name(args.region, args.folder)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    if args.region and resolved_region and args.region.strip() != resolved_region:
+        print(f"INFO region normalized: {args.region!r} -> {resolved_region!r}")
+
     # Primary first (auto WM_Id), then others with the same WM_Id for consistency.
     ordered = [primary] + [db for db in dbs if db is not primary]
     shared_id: int | None = None
@@ -285,6 +344,7 @@ def main() -> int:
             parent_id=args.parent_id,
             title=args.title,
             folder=args.folder,
+            region=resolved_region,
             new_sort=new_sort,
             active=args.active,
             wm_id=None if index == 0 else shared_id,
@@ -309,7 +369,8 @@ def main() -> int:
         print(
             f"OK [{db_label(db)}] WM_Id={wm_id} WM_SortOrder={sort_order} "
             f"WM_ParentId={args.parent_id if args.parent_id is not None else 'NULL'} "
-            f"WM_Title={args.title!r} WM_Folder={args.folder!r} WM_IsActive={args.active}"
+            f"WM_Title={args.title!r} WM_Folder={args.folder!r} "
+            f"WM_Region={resolved_region!r} WM_IsActive={args.active}"
         )
 
     if failures:

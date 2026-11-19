@@ -26,7 +26,7 @@ func GetMenu(c *gin.Context) {
 	}
 
 	rows, err := db.Query(`
-		SELECT WM_Id, WM_ParentId, WM_Title, WM_Folder, WM_SortOrder
+		SELECT WM_Id, WM_ParentId, WM_Title, WM_Folder, WM_Region, WM_SortOrder
 		FROM WebMenu
 		WHERE WM_IsActive = 1
 		ORDER BY WM_SortOrder ASC, WM_Id ASC
@@ -43,7 +43,8 @@ func GetMenu(c *gin.Context) {
 		var item model.WebMenuItem
 		var parentID sql.NullInt64
 		var folder sql.NullString
-		if err := rows.Scan(&item.ID, &parentID, &item.Title, &folder, &item.SortOrder); err != nil {
+		var region sql.NullString
+		if err := rows.Scan(&item.ID, &parentID, &item.Title, &folder, &region, &item.SortOrder); err != nil {
 			log.Printf("GetMenu scan failed: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read menus"})
 			return
@@ -55,6 +56,10 @@ func GetMenu(c *gin.Context) {
 		if folder.Valid {
 			v := folder.String
 			item.Folder = &v
+		}
+		if region.Valid {
+			v := region.String
+			item.Region = &v
 		}
 		item.Children = []model.WebMenuItem{}
 		flat = append(flat, item)

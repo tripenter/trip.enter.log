@@ -6,6 +6,7 @@ type WebMenuItem struct {
 	ParentID  *int64        `json:"parentId"`
 	Title     string        `json:"title"`
 	Folder    *string       `json:"folder"`
+	Region    *string       `json:"region,omitempty"`
 	SortOrder int           `json:"sortOrder"`
 	Children  []WebMenuItem `json:"children,omitempty"`
 }

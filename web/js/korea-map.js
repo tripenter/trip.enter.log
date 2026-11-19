@@ -48,16 +48,18 @@
   }
 
   function menusToMapItems(menus, districts) {
-    const { matchDistrictByTitle, prefixesFromContext } = window.TripEnterSigMap;
+    const { matchDistrictByRegion, prefixesFromContext } = window.TripEnterSigMap;
     const items = [];
 
     const walk = (nodes, ancestors) => {
       (nodes || []).forEach((node) => {
         const folder = cleanFolder(node.folder);
         const children = Array.isArray(node.children) ? node.children : [];
-        if (folder && !isRegionLanding(folder)) {
-          const hit = matchDistrictByTitle(
-            node.title,
+        // 지도 표시는 WM_Region(시·군·구명)과 GeoJSON name이 같을 때만 한다.
+        const region = String(node.region || "").trim();
+        if (folder && region && !isRegionLanding(folder)) {
+          const hit = matchDistrictByRegion(
+            region,
             districts,
             prefixesFromContext(ancestors.concat(node))
           );
@@ -65,6 +67,7 @@
             items.push({
               id: node.id,
               title: node.title || hit.label,
+              region,
               folder,
               href: menuHref(folder),
               covers: coverCandidates(folder),
