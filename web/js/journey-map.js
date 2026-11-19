@@ -5,6 +5,8 @@
     keepPhotoIds: [],
     existingPhotos: [],
     pendingFiles: [],
+    lightboxIndex: 0,
+    pendingObjectUrls: [],
   };
 
   function escapeHtml(value) {
@@ -20,6 +22,87 @@
     if (!modal) return;
     modal.hidden = !open;
     document.body.classList.toggle("is-journey-open", open);
+    if (!open) setLightboxOpen(false);
+  }
+
+  function gallerySources() {
+    const existing = state.existingPhotos.map((p) => p.file_path);
+    const pending = state.pendingObjectUrls.slice();
+    return existing.concat(pending);
+  }
+
+  function ensureLightbox() {
+    let box = document.querySelector("[data-journey-lightbox]");
+    if (box) return box;
+
+    box = document.createElement("div");
+    box.className = "journey-lightbox";
+    box.setAttribute("data-journey-lightbox", "");
+    box.hidden = true;
+    box.innerHTML = `
+      <div class="journey-lightbox-backdrop" data-lightbox-close tabindex="-1"></div>
+      <button type="button" class="journey-lightbox-nav journey-lightbox-prev" data-lightbox-prev aria-label="이전 사진">&lt;</button>
+      <figure class="journey-lightbox-figure">
+        <img src="" alt="" data-lightbox-image />
+        <figcaption class="journey-lightbox-caption" data-lightbox-caption></figcaption>
+      </figure>
+      <button type="button" class="journey-lightbox-nav journey-lightbox-next" data-lightbox-next aria-label="다음 사진">&gt;</button>
+      <button type="button" class="journey-lightbox-close" data-lightbox-close aria-label="닫기">×</button>
+    `;
+    document.body.appendChild(box);
+
+    box.addEventListener("click", (event) => {
+      if (event.target.closest("[data-lightbox-close]")) {
+        setLightboxOpen(false);
+        return;
+      }
+      if (event.target.closest("[data-lightbox-prev]")) {
+        showLightboxAt(state.lightboxIndex - 1);
+        return;
+      }
+      if (event.target.closest("[data-lightbox-next]")) {
+        showLightboxAt(state.lightboxIndex + 1);
+      }
+    });
+    return box;
+  }
+
+  function updateLightboxCaption() {
+    const box = ensureLightbox();
+    const caption = box.querySelector("[data-lightbox-caption]");
+    const sources = gallerySources();
+    if (!caption) return;
+    if (!sources.length) {
+      caption.textContent = "";
+      return;
+    }
+    caption.textContent = `${state.lightboxIndex + 1} / ${sources.length}`;
+  }
+
+  function showLightboxAt(index) {
+    const sources = gallerySources();
+    if (!sources.length) {
+      setLightboxOpen(false);
+      return;
+    }
+    const next = ((index % sources.length) + sources.length) % sources.length;
+    state.lightboxIndex = next;
+    const box = ensureLightbox();
+    const img = box.querySelector("[data-lightbox-image]");
+    if (img) img.src = sources[next];
+    updateLightboxCaption();
+    const prevBtn = box.querySelector("[data-lightbox-prev]");
+    const nextBtn = box.querySelector("[data-lightbox-next]");
+    const multi = sources.length > 1;
+    if (prevBtn) prevBtn.hidden = !multi;
+    if (nextBtn) nextBtn.hidden = !multi;
+  }
+
+  function setLightboxOpen(open, index = 0) {
+    const box = ensureLightbox();
+    box.hidden = !open;
+    document.body.classList.toggle("is-journey-lightbox-open", open);
+    if (open) showLightboxAt(index);
   }
 
   function ensureModal() {
@@ -65,7 +148,10 @@
     document.body.appendChild(modal);
 
     modal.addEventListener("click", (event) => {
-      if (event.target.closest("[data-journey-close]")) setJourneyOpen(false);
+      if (event.target.closest("[data-journey-close]")) {
+        setJourneyOpen(false);
+        return;
+      }
       const removeBtn = event.target.closest("[data-remove-existing]");
       if (removeBtn) {
         const id = Number(removeBtn.getAttribute("data-remove-existing"));
@@ -79,11 +165,33 @@
         const idx = Number(removePending.getAttribute("data-remove-pending"));
         state.pendingFiles.splice(idx, 1);
         renderPhotoGrid();
+        return;
+      }
+      const viewBtn = event.target.closest("[data-view-photo]");
+      if (viewBtn) {
+        const index = Number(viewBtn.getAttribute("data-view-photo"));
+        if (!Number.isNaN(index)) setLightboxOpen(true, index);
       }
     });
 
     modal.querySelector("[data-journey-form]")?.addEventListener("submit", onSave);
     document.addEventListener("keydown", (event) => {
+      const lightbox = document.querySelector("[data-journey-lightbox]");
+      if (lightbox && !lightbox.hidden) {
+        if (event.key === "Escape") {
+          setLightboxOpen(false);
+          event.stopPropagation();
+          return;
+        }
+        if (event.key === "ArrowLeft") {
+          showLightboxAt(state.lightboxIndex - 1);
+          return;
+        }
+        if (event.key === "ArrowRight") {
+          showLightboxAt(state.lightboxIndex + 1);
+          return;
+        }
+      }
       if (event.key === "Escape" && !modal.hidden) setJourneyOpen(false);
     });
     return modal;
@@ -94,25 +202,32 @@
     const grid = modal.querySelector("[data-journey-photos]");
     if (!grid) return;
 
+    state.pendingObjectUrls.forEach((url) => URL.revokeObjectURL(url));
+    state.pendingObjectUrls = state.pendingFiles.map((file) => URL.createObjectURL(file));
+
     const existingHtml = state.existingPhotos
       .map(
-        (photo) => `
+        (photo, index) => `
       <div class="journey-photo-item">
-        <img src="${escapeHtml(photo.file_path)}" alt="" />
+        <button type="button" class="journey-photo-view" data-view-photo="${index}" aria-label="사진 크게 보기">
+          <img src="${escapeHtml(photo.file_path)}" alt="" />
+        </button>
         <button type="button" class="journey-photo-remove" data-remove-existing="${photo.id}" aria-label="사진 삭제">×</button>
       </div>`
       )
       .join("");
 
-    const pendingHtml = state.pendingFiles
-      .map((file, index) => {
-        const url = URL.createObjectURL(file);
-        return `
+    const pendingOffset = state.existingPhotos.length;
+    const pendingHtml = state.pendingObjectUrls
+      .map(
+        (url, index) => `
       <div class="journey-photo-item">
-        <img src="${url}" alt="" data-object-url="${url}" />
+        <button type="button" class="journey-photo-view" data-view-photo="${pendingOffset + index}" aria-label="사진 크게 보기">
+          <img src="${url}" alt="" />
+        </button>
         <button type="button" class="journey-photo-remove" data-remove-pending="${index}" aria-label="사진 삭제">×</button>
-      </div>`;
-      })
+      </div>`
+      )
       .join("");
 
     grid.innerHTML = `

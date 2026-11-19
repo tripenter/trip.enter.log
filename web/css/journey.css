@@ -118,17 +118,29 @@
   background: #eef7fb;
 }
 
+.journey-photo-view {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+}
+
 .journey-photo-item img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  pointer-events: none;
 }
 
 .journey-photo-remove {
   position: absolute;
   top: 0.3rem;
   right: 0.3rem;
+  z-index: 2;
   width: 1.5rem;
   height: 1.5rem;
   border: 0;
@@ -138,6 +150,103 @@
   font-size: 0.9rem;
   line-height: 1;
   cursor: pointer;
+}
+
+.journey-lightbox[hidden] {
+  display: none !important;
+}
+
+.journey-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 10040;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+}
+
+.journey-lightbox-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 16, 20, 0.88);
+}
+
+.journey-lightbox-figure {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  max-width: min(92vw, 56rem);
+  max-height: 84vh;
+  display: grid;
+  gap: 0.65rem;
+  justify-items: center;
+}
+
+.journey-lightbox-figure img {
+  max-width: 100%;
+  max-height: 76vh;
+  object-fit: contain;
+  border-radius: 10px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+  background: #111;
+}
+
+.journey-lightbox-caption {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.journey-lightbox-nav {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  transform: translateY(-50%);
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.journey-lightbox-prev {
+  left: max(0.75rem, 2vw);
+}
+
+.journey-lightbox-next {
+  right: max(0.75rem, 2vw);
+}
+
+.journey-lightbox-nav:hover,
+.journey-lightbox-nav:focus-visible {
+  background: rgba(255, 255, 255, 0.22);
+  outline: none;
+}
+
+.journey-lightbox-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 2;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+body.is-journey-lightbox-open {
+  overflow: hidden;
 }
 
 .journey-photo-add {
