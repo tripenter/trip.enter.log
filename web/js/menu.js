@@ -135,8 +135,102 @@
     }
   }
 
+  function setAuthOpen(open) {
+    const modal = document.querySelector("[data-auth-modal]");
+    const loginBtn = document.querySelector("[data-nav-login]");
+    if (!modal) return;
+    modal.hidden = !open;
+    document.body.classList.toggle("is-auth-open", open);
+    if (loginBtn) loginBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    if (open) {
+      const closeBtn = modal.querySelector("[data-auth-close]");
+      if (closeBtn) closeBtn.focus();
+    }
+  }
+
+  function ensureAuthUI(navInner) {
+    let end = navInner.querySelector("[data-nav-end]");
+    if (!end) {
+      end = document.createElement("div");
+      end.className = "nav-end";
+      end.setAttribute("data-nav-end", "");
+      navInner.appendChild(end);
+    }
+
+    let loginBtn = end.querySelector("[data-nav-login]");
+    if (!loginBtn) {
+      loginBtn = document.createElement("button");
+      loginBtn.type = "button";
+      loginBtn.className = "nav-login";
+      loginBtn.setAttribute("data-nav-login", "");
+      loginBtn.setAttribute("aria-haspopup", "dialog");
+      loginBtn.setAttribute("aria-expanded", "false");
+      loginBtn.setAttribute("aria-controls", "auth-modal");
+      loginBtn.textContent = "로그인";
+      end.appendChild(loginBtn);
+    }
+
+    let modal = document.querySelector("[data-auth-modal]");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.className = "auth-modal";
+      modal.id = "auth-modal";
+      modal.setAttribute("data-auth-modal", "");
+      modal.setAttribute("role", "dialog");
+      modal.setAttribute("aria-modal", "true");
+      modal.setAttribute("aria-labelledby", "auth-modal-title");
+      modal.hidden = true;
+      modal.innerHTML = `
+        <div class="auth-modal-backdrop" data-auth-close tabindex="-1"></div>
+        <div class="auth-modal-panel">
+          <div class="auth-modal-head">
+            <h2 class="auth-modal-title font-display" id="auth-modal-title">로그인</h2>
+            <button type="button" class="auth-modal-close" data-auth-close aria-label="닫기">×</button>
+          </div>
+          <p class="auth-modal-copy">소셜 계정으로 트립엔터에 로그인하세요.</p>
+          <div class="auth-provider-list">
+            <a class="auth-provider auth-provider-kakao" href="/rest/auth/kakao">
+              <span class="auth-provider-mark" aria-hidden="true">K</span>
+              <span>카카오로 계속하기</span>
+            </a>
+            <a class="auth-provider auth-provider-naver" href="/rest/auth/naver">
+              <span class="auth-provider-mark" aria-hidden="true">N</span>
+              <span>네이버로 계속하기</span>
+            </a>
+            <a class="auth-provider auth-provider-google" href="/rest/auth/google">
+              <span class="auth-provider-mark" aria-hidden="true">G</span>
+              <span>구글로 계속하기</span>
+            </a>
+            <a class="auth-provider auth-provider-apple" href="/rest/auth/apple">
+              <span class="auth-provider-mark" aria-hidden="true">A</span>
+              <span>Apple로 계속하기</span>
+            </a>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      loginBtn.addEventListener("click", () => {
+        setNavOpen(false);
+        setAuthOpen(true);
+      });
+
+      modal.addEventListener("click", (event) => {
+        if (event.target.closest("[data-auth-close]")) setAuthOpen(false);
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !modal.hidden) setAuthOpen(false);
+      });
+    }
+
+    return { end, loginBtn, modal };
+  }
+
   function ensureMobileShell(navInner) {
-    let toggle = navInner.querySelector("[data-nav-toggle]");
+    const auth = ensureAuthUI(navInner);
+
+    let toggle = auth.end.querySelector("[data-nav-toggle]");
     if (!toggle) {
       toggle = document.createElement("button");
       toggle.type = "button";
@@ -150,7 +244,7 @@
           <span></span><span></span><span></span>
         </span>
       `;
-      navInner.appendChild(toggle);
+      auth.end.appendChild(toggle);
     }
 
     let drawer = document.querySelector("[data-nav-drawer]");

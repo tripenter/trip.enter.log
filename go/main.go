@@ -57,6 +57,7 @@ func main() {
 	})
 
 	r.POST("/rest/get/menu", controller.GetMenu)
+	r.GET("/rest/auth/:provider", controller.StartSocialAuth)
 
 	// 로컬·배포 공통: web 정적 파일 (배포 시 cwd에 index.html, 로컬은 ../web)
 	if webRoot := resolveWebRoot(); webRoot != "" {
