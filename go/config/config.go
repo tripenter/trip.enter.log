@@ -43,19 +43,24 @@ type KakaoOAuthConfig = ProviderOAuthConfig
 // NaverOAuthConfig is Naver login credentials loaded from config.json (not hardcoded).
 type NaverOAuthConfig = ProviderOAuthConfig
 
+// GoogleOAuthConfig is Google login credentials loaded from config.json (not hardcoded).
+type GoogleOAuthConfig = ProviderOAuthConfig
+
 // OAuthConfig groups social login providers.
 type OAuthConfig struct {
-	Kakao KakaoOAuthConfig `json:"kakao"`
-	Naver NaverOAuthConfig `json:"naver"`
+	Kakao  KakaoOAuthConfig  `json:"kakao"`
+	Naver  NaverOAuthConfig  `json:"naver"`
+	Google GoogleOAuthConfig `json:"google"`
 }
 
 type Config struct {
 	Server   ServerConfig   `json:"server"`
 	Database DatabaseConfig `json:"-"`
 	OAuth    OAuthConfig    `json:"oauth"`
-	// KakaoRedirectURI / NaverRedirectURI are selected by APP_DEBUG (debug vs release).
-	KakaoRedirectURI string `json:"-"`
-	NaverRedirectURI string `json:"-"`
+	// Provider redirect URIs are selected by APP_DEBUG (debug vs release).
+	KakaoRedirectURI  string `json:"-"`
+	NaverRedirectURI  string `json:"-"`
+	GoogleRedirectURI string `json:"-"`
 }
 
 type configFile struct {
@@ -117,13 +122,15 @@ func LoadConfigWithDebug(configPath string, debug bool) (*Config, error) {
 
 	kakaoRedirect := pickRedirectURI(raw.OAuth.Kakao.RedirectURIs, debug)
 	naverRedirect := pickRedirectURI(raw.OAuth.Naver.RedirectURIs, debug)
+	googleRedirect := pickRedirectURI(raw.OAuth.Google.RedirectURIs, debug)
 
 	return &Config{
-		Server:           raw.Server,
-		Database:         *selected,
-		OAuth:            raw.OAuth,
-		KakaoRedirectURI: kakaoRedirect,
-		NaverRedirectURI: naverRedirect,
+		Server:            raw.Server,
+		Database:          *selected,
+		OAuth:             raw.OAuth,
+		KakaoRedirectURI:  kakaoRedirect,
+		NaverRedirectURI:  naverRedirect,
+		GoogleRedirectURI: googleRedirect,
 	}, nil
 }
 
@@ -142,6 +149,11 @@ func (c *Config) KakaoConfigured() bool {
 // NaverConfigured reports whether Naver OAuth client id is present.
 func (c *Config) NaverConfigured() bool {
 	return c != nil && strings.TrimSpace(c.OAuth.Naver.ClientID) != ""
+}
+
+// GoogleConfigured reports whether Google OAuth client id is present.
+func (c *Config) GoogleConfigured() bool {
+	return c != nil && strings.TrimSpace(c.OAuth.Google.ClientID) != ""
 }
 
 // ConnectDB 함수는 데이터베이스 커넥션 풀을 생성하여 반환합니다.

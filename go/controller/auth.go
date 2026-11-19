@@ -51,6 +51,9 @@ func StartSocialAuth(c *gin.Context) {
 	case "naver":
 		startNaverAuth(c)
 		return
+	case "google":
+		startGoogleAuth(c)
+		return
 	}
 
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(authPendingHTML(label)))
@@ -214,6 +217,92 @@ func NaverCallback(c *gin.Context) {
 	}
 
 	if err := setLoginSession(c, "naver", userID, nickname, accountID); err != nil {
+		log.Printf("session encode failed: %v", err)
+		c.Redirect(http.StatusFound, "/?auth=session_failed")
+		return
+	}
+
+	c.Redirect(http.StatusFound, "/?auth=ok")
+}
+
+func startGoogleAuth(c *gin.Context) {
+	if appConfig == nil || !appConfig.GoogleConfigured() {
+		c.Data(http.StatusServiceUnavailable, "text/html; charset=utf-8", []byte(authPendingHTML("구글")))
+		return
+	}
+	redirectURI := strings.TrimSpace(appConfig.GoogleRedirectURI)
+	if redirectURI == "" {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "google_redirect_missing"})
+		return
+	}
+
+	state, err := randomState()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "state_failed"})
+		return
+	}
+	setOAuthState(c, state)
+
+	q := url.Values{}
+	q.Set("client_id", appConfig.OAuth.Google.ClientID)
+	q.Set("redirect_uri", redirectURI)
+	q.Set("response_type", "code")
+	q.Set("scope", "openid profile")
+	q.Set("state", state)
+	q.Set("access_type", "online")
+	q.Set("include_granted_scopes", "true")
+	q.Set("prompt", "select_account")
+
+	c.Redirect(http.StatusFound, "https://accounts.google.com/o/oauth2/v2/auth?"+q.Encode())
+}
+
+// GoogleCallback handles Google OAuth redirect.
+// Route: GET /rest/auth/google/callback
+func GoogleCallback(c *gin.Context) {
+	if appConfig == nil || !appConfig.GoogleConfigured() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "google_not_configured"})
+		return
+	}
+
+	if errMsg := strings.TrimSpace(c.Query("error")); errMsg != "" {
+		log.Printf("google oauth error: %s desc=%s", errMsg, c.Query("error_description"))
+		c.Redirect(http.StatusFound, "/?auth=error")
+		return
+	}
+
+	code := strings.TrimSpace(c.Query("code"))
+	state := strings.TrimSpace(c.Query("state"))
+	if code == "" || !consumeOAuthState(c, state) {
+		c.Redirect(http.StatusFound, "/?auth=invalid_state")
+		return
+	}
+
+	token, err := exchangeGoogleToken(code, appConfig.GoogleRedirectURI)
+	if err != nil {
+		log.Printf("google token exchange failed: %v", err)
+		c.Redirect(http.StatusFound, "/?auth=token_failed")
+		return
+	}
+
+	userID, nickname, err := fetchGoogleProfile(token)
+	if err != nil {
+		log.Printf("google profile failed: %v", err)
+		c.Redirect(http.StatusFound, "/?auth=profile_failed")
+		return
+	}
+	if nickname == "" {
+		log.Printf("google nickname empty for user=%s; using fallback", userID)
+		nickname = "구글사용자"
+	}
+
+	accountID, err := model.UpsertSocialUser(db, "google", userID, nickname)
+	if err != nil {
+		log.Printf("UserAccount upsert failed: %v", err)
+		c.Redirect(http.StatusFound, "/?auth=db_failed")
+		return
+	}
+
+	if err := setLoginSession(c, "google", userID, nickname, accountID); err != nil {
 		log.Printf("session encode failed: %v", err)
 		c.Redirect(http.StatusFound, "/?auth=session_failed")
 		return
@@ -495,6 +584,87 @@ func fetchNaverProfile(accessToken string) (userID, nickname string, err error) 
 	}
 	if nickname == "" {
 		log.Printf("naver profile without nickname: %s", truncate(body, 400))
+	}
+	return userID, nickname, nil
+}
+
+type googleTokenResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	Error       string `json:"error"`
+	ErrorDesc   string `json:"error_description"`
+}
+
+type googleUserResponse struct {
+	Sub           string `json:"sub"`
+	Name          string `json:"name"`
+	GivenName     string `json:"given_name"`
+	FamilyName    string `json:"family_name"`
+	Email         string `json:"email"`
+	EmailVerified bool   `json:"email_verified"`
+}
+
+func exchangeGoogleToken(code, redirectURI string) (string, error) {
+	form := url.Values{}
+	form.Set("code", code)
+	form.Set("client_id", appConfig.OAuth.Google.ClientID)
+	form.Set("client_secret", appConfig.OAuth.Google.ClientSecret)
+	form.Set("redirect_uri", redirectURI)
+	form.Set("grant_type", "authorization_code")
+
+	req, err := http.NewRequest(http.MethodPost, "https://oauth2.googleapis.com/token", strings.NewReader(form.Encode()))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	var parsed googleTokenResponse
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		return "", fmt.Errorf("token json: %w body=%s", err, truncate(body, 200))
+	}
+	if parsed.AccessToken == "" {
+		return "", fmt.Errorf("token empty: %s %s", parsed.Error, parsed.ErrorDesc)
+	}
+	return parsed.AccessToken, nil
+}
+
+func fetchGoogleProfile(accessToken string) (userID, nickname string, err error) {
+	req, err := http.NewRequest(http.MethodGet, "https://openidconnect.googleapis.com/v1/userinfo", nil)
+	if err != nil {
+		return "", "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", "", err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	var user googleUserResponse
+	if err := json.Unmarshal(body, &user); err != nil {
+		return "", "", fmt.Errorf("profile json: %w body=%s", err, truncate(body, 300))
+	}
+	userID = strings.TrimSpace(user.Sub)
+	if userID == "" {
+		return "", "", fmt.Errorf("profile missing sub: %s", truncate(body, 300))
+	}
+	nickname = strings.TrimSpace(user.Name)
+	if nickname == "" {
+		nickname = strings.TrimSpace(user.GivenName)
+	}
+	if nickname == "" {
+		log.Printf("google profile without name: %s", truncate(body, 400))
 	}
 	return userID, nickname, nil
 }

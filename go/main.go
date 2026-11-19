@@ -48,6 +48,11 @@ func main() {
 	} else {
 		log.Printf("네이버 OAuth 미설정 (config.json oauth.naver)")
 	}
+	if cfg.GoogleConfigured() {
+		log.Printf("구글 OAuth 로드 완료 - redirect=%s", cfg.GoogleRedirectURI)
+	} else {
+		log.Printf("구글 OAuth 미설정 (config.json oauth.google)")
+	}
 
 	db, err := config.ConnectDB(cfg)
 	if err != nil {
@@ -70,6 +75,7 @@ func main() {
 	r.POST("/rest/get/menu", controller.GetMenu)
 	r.GET("/rest/auth/kakao/callback", controller.KakaoCallback)
 	r.GET("/rest/auth/naver/callback", controller.NaverCallback)
+	r.GET("/rest/auth/google/callback", controller.GoogleCallback)
 	r.GET("/rest/auth/me", controller.AuthMe)
 	r.GET("/rest/auth/profile", controller.AuthProfileGet)
 	r.POST("/rest/auth/profile", controller.AuthProfileUpdate)
