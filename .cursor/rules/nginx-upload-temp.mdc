@@ -1,0 +1,32 @@
+---
+description: nginx client_body_temp must be writable by the nginx worker for diary photo uploads
+alwaysApply: true
+---
+
+# nginx upload temp (diary photos)
+
+이미지 첨부 POST(`/rest/diary`)가 nginx를 거치면 body가 커질 때 `client_body_temp`에 임시 파일을 쓴다.
+
+## Symptom
+
+- 작은 요청·텍스트만 저장: 성공
+- 사진 첨부 저장: 브라우저 `save 500`, Go 로그에는 POST가 없음
+- `/opt/homebrew/var/log/nginx/error.log`:
+  `open() ".../client_body_temp/..." failed (13: Permission denied)`
+
+## Fix
+
+nginx worker는 **infra**로 동작한다. temp 디렉터리가 `nobody` 소유(`drwx------`)이면 실패한다.
+
+```bash
+cd /opt/homebrew/var/run/nginx
+for d in client_body_temp proxy_temp fastcgi_temp scgi_temp uwsgi_temp; do
+  rm -rf "$d"
+  mkdir -p "$d"
+  chmod 700 "$d"
+done
+nginx -s reload
+```
+
+사이트 설정에 `client_body_buffer_size 64M;`(와 `client_max_body_size`)를 두면 일반 휴대폰 사진은 메모리에서 처리된다.
+`deploy.sh` 배포 끝에서도 동일 temp 권한을 점검한다.
