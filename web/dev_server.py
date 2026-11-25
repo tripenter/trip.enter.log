@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local web server (port 8080): static files + /rest/* → Go API (port 10000).
+"""Local web server (port 8888): static files + /rest/* → Go API (port 10000).
 
 Mirrors production nginx:
   - static from this directory (web/)
@@ -7,7 +7,7 @@ Mirrors production nginx:
 
 Usage (from repo root or anywhere):
   python3 web/dev_server.py
-  python3 web/dev_server.py --port 8080 --api http://127.0.0.1:10000
+  python3 web/dev_server.py --port 8888 --api http://127.0.0.1:10000
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from urllib.parse import urlsplit
 
 
 WEB_ROOT = Path(__file__).resolve().parent
-DEFAULT_PORT = 8080
+DEFAULT_PORT = 8888
 DEFAULT_API = "http://127.0.0.1:10000"
 
 
@@ -150,7 +150,7 @@ class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Local web :8080 with /rest → Go :10000 proxy")
+    parser = argparse.ArgumentParser(description="Local web :8888 with /rest → Go :10000 proxy")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--api", default=DEFAULT_API, help="Go API base URL")
     args = parser.parse_args()

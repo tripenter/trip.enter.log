@@ -341,6 +341,7 @@ func AuthLogout(c *gin.Context) {
 }
 
 type profileUpdateRequest struct {
+	Nickname      string `json:"nickname"`
 	Email         string `json:"email"`
 	Phone         string `json:"phone"`
 	Address       string `json:"address"`
@@ -423,9 +424,19 @@ func AuthProfileUpdate(c *gin.Context) {
 		return
 	}
 
+	nickname := strings.TrimSpace(req.Nickname)
+	if nickname == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "nickname_required",
+			"message": "프로필명(닉네임)을 입력해 주세요.",
+		})
+		return
+	}
+
 	if err := model.UpdateUserProfile(
 		db,
 		s.AccountID,
+		nickname,
 		req.Email,
 		req.Phone,
 		req.Address,
@@ -438,9 +449,14 @@ func AuthProfileUpdate(c *gin.Context) {
 		return
 	}
 
+	// Keep session greeting / journey nav in sync with the new nickname.
+	if err := setLoginSession(c, s.Provider, s.UserID, nickname, s.AccountID); err != nil {
+		log.Printf("refresh session nickname failed: %v", err)
+	}
+
 	profile, err := model.GetUserProfile(db, s.AccountID)
 	if err != nil || profile == nil {
-		c.JSON(http.StatusOK, gin.H{"ok": true})
+		c.JSON(http.StatusOK, gin.H{"ok": true, "nickname": nickname})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true, "profile": profile})

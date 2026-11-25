@@ -1,5 +1,5 @@
 ---
-description: Local web (8080) and Go API (10000) port conventions
+description: Local web (8888) and Go API (10000) port conventions
 alwaysApply: true
 ---
 
@@ -9,15 +9,15 @@ alwaysApply: true
 
 | 역할 | 포트 | 실행 |
 | --- | --- | --- |
-| 웹 + `/rest` 프록시 | **8080** | `python3 web/dev_server.py` (정적 `web/` + `/rest/*` → Go) |
+| 웹 + `/rest` 프록시 | **8888** | `python3 web/dev_server.py` (정적 `web/` + `/rest/*` → Go) |
 | Go API (`tripREST`) | **10000** | `go/dev_secret/config.json`의 `server.port` (기본 10000). 변경하지 말 것 |
 
 프론트 JS는 `/rest/...` **상대 경로**를 유지한다.  
-로컬 8080과 운영 nginx 모두 `/rest/`를 Go `:10000`으로 넘긴다. API 베이스를 JS에 하드코딩하지 않는다.
+로컬 8888과 운영 nginx 모두 `/rest/`를 Go `:10000`으로 넘긴다. API 베이스를 JS에 하드코딩하지 않는다.
 
 ## Agent rules
 
-- 로컬 웹 서버는 항상 **8080** + `web/dev_server.py` 를 쓴다. plain `http.server`나 `8765`는 쓰지 않는다.
+- 로컬 웹 서버는 항상 **8888** + `web/dev_server.py` 를 쓴다. plain `http.server`나 `8765`/`8080`는 쓰지 않는다.
 - Go 서버는 **10000**을 유지한다. `config.json`의 `server.port`를 바꾸지 않는다.
-- 메뉴·지도 확인은 `http://127.0.0.1:8080/` (프록시) 또는 `http://127.0.0.1:10000/` 모두 가능.
+- 메뉴·지도 확인은 `http://127.0.0.1:8888/` (프록시) 또는 `http://127.0.0.1:10000/` 모두 가능.
 - 서버 기동 전 동일 포트 프로세스를 확인하고, 충돌 시 정리 후 위 포트로 다시 띄운다.

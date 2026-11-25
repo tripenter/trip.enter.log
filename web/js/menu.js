@@ -208,7 +208,7 @@
     modal.hidden = !open;
     document.body.classList.toggle("is-profile-open", open);
     if (open) {
-      const first = modal.querySelector("[data-profile-email]");
+      const first = modal.querySelector("[data-profile-nickname]") || modal.querySelector("[data-profile-email]");
       if (first) first.focus();
     }
   }
@@ -232,8 +232,12 @@
           <h2 class="profile-modal-title font-display" id="profile-modal-title">프로필 수정</h2>
           <button type="button" class="profile-modal-close" data-profile-close aria-label="닫기">×</button>
         </div>
-        <p class="profile-modal-copy">주소·연락처·소개를 남겨 두면 여행 기록에 함께 쓸 수 있어요.</p>
+        <p class="profile-modal-copy">프로필명·주소·연락처·소개를 남겨 두면 여행 기록에 함께 쓸 수 있어요.</p>
         <form class="profile-form" data-profile-form>
+          <label class="profile-field">
+            <span>프로필명(닉네임)</span>
+            <input type="text" name="nickname" data-profile-nickname autocomplete="nickname" maxlength="40" required placeholder="표시할 이름" />
+          </label>
           <label class="profile-field">
             <span>이메일</span>
             <input type="email" name="email" data-profile-email autocomplete="email" placeholder="name@example.com" />
@@ -298,7 +302,9 @@
       event.preventDefault();
       const status = modal.querySelector("[data-profile-status]");
       const saveBtn = modal.querySelector("[data-profile-save]");
+      const nickname = (modal.querySelector("[data-profile-nickname]")?.value || "").trim();
       const body = {
+        nickname,
         email: modal.querySelector("[data-profile-email]")?.value || "",
         phone: modal.querySelector("[data-profile-phone]")?.value || "",
         zonecode: modal.querySelector("[data-profile-zonecode]")?.value || "",
@@ -306,6 +312,14 @@
         address_detail: modal.querySelector("[data-profile-address-detail]")?.value || "",
         intro: modal.querySelector("[data-profile-intro]")?.value || "",
       };
+      if (!nickname) {
+        if (status) {
+          status.hidden = false;
+          status.textContent = "프로필명(닉네임)을 입력해 주세요.";
+        }
+        modal.querySelector("[data-profile-nickname]")?.focus();
+        return;
+      }
       if (saveBtn) saveBtn.disabled = true;
       if (status) {
         status.hidden = false;
@@ -318,12 +332,33 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
-        if (!res.ok) throw new Error(`profile save ${res.status}`);
+        if (!res.ok) {
+          let message = `profile save ${res.status}`;
+          try {
+            const errBody = await res.json();
+            if (errBody && errBody.message) message = String(errBody.message);
+          } catch (_) {
+            /* ignore */
+          }
+          throw new Error(message);
+        }
+        const saved = await res.json().catch(() => null);
+        const nextNick =
+          (saved && saved.profile && saved.profile.nickname) ||
+          (saved && saved.nickname) ||
+          nickname;
+        const loginBtn = document.querySelector("[data-nav-login]");
+        if (loginBtn && nextNick) renderLoggedIn(loginBtn, String(nextNick));
         if (status) status.textContent = "저장했습니다.";
         setTimeout(() => setProfileOpen(false), 450);
       } catch (err) {
         console.error(err);
-        if (status) status.textContent = "저장에 실패했습니다. 다시 시도해 주세요.";
+        if (status) {
+          status.textContent =
+            err && err.message && !String(err.message).startsWith("profile save")
+              ? String(err.message)
+              : "저장에 실패했습니다. 다시 시도해 주세요.";
+        }
       } finally {
         if (saveBtn) saveBtn.disabled = false;
       }
@@ -354,6 +389,7 @@
         const el = modal.querySelector(sel);
         if (el) el.value = value || "";
       };
+      setVal("[data-profile-nickname]", data.nickname);
       setVal("[data-profile-email]", data.email);
       setVal("[data-profile-phone]", data.phone);
       setVal("[data-profile-zonecode]", data.zonecode);

@@ -78,17 +78,22 @@ func GetUserProfile(db *sql.DB, accountID int64) (*UserProfile, error) {
 }
 
 // UpdateUserProfile updates editable profile fields for UA_Id.
-func UpdateUserProfile(db *sql.DB, accountID int64, email, phone, address, addressDetail, zonecode, intro string) error {
+func UpdateUserProfile(db *sql.DB, accountID int64, nickname, email, phone, address, addressDetail, zonecode, intro string) error {
 	if db == nil {
 		return fmt.Errorf("database not initialized")
 	}
 	if accountID <= 0 {
 		return fmt.Errorf("invalid account id")
 	}
+	nickname = strings.TrimSpace(nickname)
+	if nickname == "" {
+		return fmt.Errorf("nickname required")
+	}
 
 	res, err := db.Exec(`
 		UPDATE UserAccount
-		SET UA_Email = ?,
+		SET UA_Nickname = ?,
+		    UA_Email = ?,
 		    UA_Phone = ?,
 		    UA_Address = ?,
 		    UA_AddressDetail = ?,
@@ -96,7 +101,7 @@ func UpdateUserProfile(db *sql.DB, accountID int64, email, phone, address, addre
 		    UA_Intro = ?,
 		    UA_UpdatedAt = ?
 		WHERE UA_Id = ?
-	`, nullable(email), nullable(phone), nullable(address), nullable(addressDetail), nullable(zonecode), nullable(intro), time.Now(), accountID)
+	`, nickname, nullable(email), nullable(phone), nullable(address), nullable(addressDetail), nullable(zonecode), nullable(intro), time.Now(), accountID)
 	if err != nil {
 		return fmt.Errorf("update UserAccount profile: %w", err)
 	}
