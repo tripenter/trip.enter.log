@@ -140,29 +140,31 @@ func FindAccountIDByProviderUser(db *sql.DB, provider, providerUserID string) (i
 	return id, nil
 }
 
-// UpsertSocialUser inserts or updates a UserAccount row for a social login.
-// On insert: provider, provider user id, nickname, timestamps.
-// On update: nickname + UA_UpdatedAt (profile fields are left as-is).
-func UpsertSocialUser(db *sql.DB, provider, providerUserID, nickname string) (int64, error) {
+// UpsertSocialUser inserts or finds a UserAccount row for a social login.
+// On first login (insert): stores the social nickname once.
+// On later logins: never overwrites UA_Nickname (profile edit owns that field).
+// Returns account id and the nickname that should be used for the session.
+func UpsertSocialUser(db *sql.DB, provider, providerUserID, nickname string) (accountID int64, storedNickname string, err error) {
 	if db == nil {
-		return 0, fmt.Errorf("database not initialized")
+		return 0, "", fmt.Errorf("database not initialized")
 	}
 	provider = strings.TrimSpace(provider)
 	providerUserID = strings.TrimSpace(providerUserID)
 	nickname = strings.TrimSpace(nickname)
 	if provider == "" || providerUserID == "" {
-		return 0, fmt.Errorf("provider and provider user id are required")
+		return 0, "", fmt.Errorf("provider and provider user id are required")
 	}
 	if nickname == "" {
 		nickname = "사용자"
 	}
 
 	var id int64
-	err := db.QueryRow(`
-		SELECT UA_Id
+	var existingNick string
+	err = db.QueryRow(`
+		SELECT UA_Id, UA_Nickname
 		FROM UserAccount
 		WHERE UA_Provider = ? AND UA_ProviderUserId = ?
-	`, provider, providerUserID).Scan(&id)
+	`, provider, providerUserID).Scan(&id, &existingNick)
 
 	now := time.Now()
 	if err == sql.ErrNoRows {
@@ -172,25 +174,29 @@ func UpsertSocialUser(db *sql.DB, provider, providerUserID, nickname string) (in
 			) VALUES (?, ?, ?, ?, ?)
 		`, provider, providerUserID, nickname, now, now)
 		if err != nil {
-			return 0, fmt.Errorf("insert UserAccount: %w", err)
+			return 0, "", fmt.Errorf("insert UserAccount: %w", err)
 		}
 		newID, err := res.LastInsertId()
 		if err != nil {
-			return 0, fmt.Errorf("UserAccount last insert id: %w", err)
+			return 0, "", fmt.Errorf("UserAccount last insert id: %w", err)
 		}
-		return newID, nil
+		return newID, nickname, nil
 	}
 	if err != nil {
-		return 0, fmt.Errorf("select UserAccount: %w", err)
+		return 0, "", fmt.Errorf("select UserAccount: %w", err)
 	}
 
 	_, err = db.Exec(`
 		UPDATE UserAccount
-		SET UA_Nickname = ?, UA_UpdatedAt = ?
+		SET UA_UpdatedAt = ?
 		WHERE UA_Id = ?
-	`, nickname, now, id)
+	`, now, id)
 	if err != nil {
-		return 0, fmt.Errorf("update UserAccount: %w", err)
+		return 0, "", fmt.Errorf("update UserAccount login time: %w", err)
 	}
-	return id, nil
+	storedNickname = strings.TrimSpace(existingNick)
+	if storedNickname == "" {
+		storedNickname = nickname
+	}
+	return id, storedNickname, nil
 }

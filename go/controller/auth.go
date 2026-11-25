@@ -126,14 +126,14 @@ func KakaoCallback(c *gin.Context) {
 		nickname = "카카오사용자"
 	}
 
-	accountID, err := model.UpsertSocialUser(db, "kakao", userID, nickname)
+	accountID, sessionNick, err := model.UpsertSocialUser(db, "kakao", userID, nickname)
 	if err != nil {
 		log.Printf("UserAccount upsert failed: %v", err)
 		c.Redirect(http.StatusFound, "/?auth=db_failed")
 		return
 	}
 
-	if err := setLoginSession(c, "kakao", userID, nickname, accountID); err != nil {
+	if err := setLoginSession(c, "kakao", userID, sessionNick, accountID); err != nil {
 		log.Printf("session encode failed: %v", err)
 		c.Redirect(http.StatusFound, "/?auth=session_failed")
 		return
@@ -208,14 +208,14 @@ func NaverCallback(c *gin.Context) {
 		nickname = "네이버사용자"
 	}
 
-	accountID, err := model.UpsertSocialUser(db, "naver", userID, nickname)
+	accountID, sessionNick, err := model.UpsertSocialUser(db, "naver", userID, nickname)
 	if err != nil {
 		log.Printf("UserAccount upsert failed: %v", err)
 		c.Redirect(http.StatusFound, "/?auth=db_failed")
 		return
 	}
 
-	if err := setLoginSession(c, "naver", userID, nickname, accountID); err != nil {
+	if err := setLoginSession(c, "naver", userID, sessionNick, accountID); err != nil {
 		log.Printf("session encode failed: %v", err)
 		c.Redirect(http.StatusFound, "/?auth=session_failed")
 		return
@@ -294,14 +294,14 @@ func GoogleCallback(c *gin.Context) {
 		nickname = "구글사용자"
 	}
 
-	accountID, err := model.UpsertSocialUser(db, "google", userID, nickname)
+	accountID, sessionNick, err := model.UpsertSocialUser(db, "google", userID, nickname)
 	if err != nil {
 		log.Printf("UserAccount upsert failed: %v", err)
 		c.Redirect(http.StatusFound, "/?auth=db_failed")
 		return
 	}
 
-	if err := setLoginSession(c, "google", userID, nickname, accountID); err != nil {
+	if err := setLoginSession(c, "google", userID, sessionNick, accountID); err != nil {
 		log.Printf("session encode failed: %v", err)
 		c.Redirect(http.StatusFound, "/?auth=session_failed")
 		return
