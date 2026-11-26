@@ -24,6 +24,8 @@
   const DOKDO_TO_ULLEUNG_SIZE = 0.4;
   const EAST_ISLAND_CODES = new Set(["37430"]); // 울릉군
   const ULLEUNG_BODY_LNG_MAX = 131.2; // 울릉 본체(독도 첨점 제외)
+  // 독도는 행정코드상 울릉군(37430)이지만, 지도 호버·스타일은 울릉과 분리한다.
+  const DOKDO_REGION_CODE = "dokdo";
   const ONGJIN_CODE = "23320"; // 인천 옹진군
   const ONGJIN_LNG_SHIFT = 0.2; // 동
   const ONGJIN_LAT_SHIFT = -0.1; // 남
@@ -1138,12 +1140,26 @@
     let hideTimer = 0;
 
     const styleFor = (code) => {
+      if (code === DOKDO_REGION_CODE) {
+        if (activeCode === DOKDO_REGION_CODE) return HOVER;
+        return DOKDO_FILL;
+      }
       if (activeCodes.has(code)) return OPEN_HIT;
       if (activeCode && code === activeCode) return HOVER;
       return VEIL;
     };
 
+    const applyDokdoStyle = () => {
+      if (!dokdoLayer) return;
+      const style = styleFor(DOKDO_REGION_CODE);
+      dokdoLayer.eachLayer((layer) => layer.setStyle(style));
+    };
+
     const applyLayerStyle = (code) => {
+      if (code === DOKDO_REGION_CODE) {
+        applyDokdoStyle();
+        return;
+      }
       const layer = layersByCode.get(code);
       if (layer) layer.setStyle(styleFor(code));
       const fill = fillLayersByCode.get(code);
@@ -1408,8 +1424,12 @@
       return matched;
     };
 
-    const attachRegionHandlers = (layer, { code, name, memberCodes = null, registerLayer = true } = {}) => {
+    const attachRegionHandlers = (
+      layer,
+      { code, name, memberCodes = null, registerLayer = true, styleCode = null } = {}
+    ) => {
       const regionCode = String(code || "");
+      const highlightCode = String(styleCode || regionCode);
       const regionName = name || regionCode;
       const lookupCodes = Array.isArray(memberCodes) && memberCodes.length
         ? Array.from(new Set([regionCode].concat(memberCodes.map(String))))
@@ -1439,7 +1459,7 @@
       layer.on("mouseover", (event) => {
         if (isMapPanning()) return;
         dismissEmptyPopup();
-        setActiveCode(regionCode);
+        setActiveCode(highlightCode);
         if (matched.length) {
           const anchor = event.latlng || layer.getBounds().getCenter();
           showHoverPopup(matched, anchor, regionName, regionCode);
@@ -1461,7 +1481,7 @@
           return;
         }
         if (typeof layer.closeTooltip === "function") layer.closeTooltip();
-        if (activeCode === regionCode) setActiveCode(null);
+        if (activeCode === highlightCode) setActiveCode(null);
         if (matched.length) scheduleHideHoverPopup();
         else setStatus(itemCount ? withItemsStatus : idleStatus);
         if (typeof options.onRegionLeave === "function") {
@@ -1491,13 +1511,15 @@
     const bindDokdoHandlers = () => {
       if (!dokdoLayer) return;
       dokdoLayer.eachLayer((layer) => {
-        // 행정구역상 울릉군(37430). 표시명은 독도.
+        // 행정·일기 코드는 울릉군(37430), 노란 호버는 독도 레이어만 칠한다.
         attachRegionHandlers(layer, {
           code: "37430",
+          styleCode: DOKDO_REGION_CODE,
           name: "독도",
           registerLayer: false,
         });
       });
+      applyDokdoStyle();
     };
 
     const bindRegions = ({ resetView = false } = {}) => {
