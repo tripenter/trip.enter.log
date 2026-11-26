@@ -83,8 +83,10 @@ func main() {
 	r.GET("/rest/auth/:provider", controller.StartSocialAuth)
 
 	r.GET("/rest/diary/mine", controller.ListMyDiaries)
-	r.GET("/rest/diary/by-region", controller.GetDiaryByRegion)
+	r.GET("/rest/diary/by-region", controller.GetDiariesByRegion)
+	r.GET("/rest/diary", controller.GetDiary)
 	r.POST("/rest/diary", controller.SaveDiary)
+	r.DELETE("/rest/diary", controller.DeleteDiary)
 
 	// 로컬·배포 공통: web 정적 파일 (배포 시 cwd에 index.html, 로컬은 ../web)
 	if webRoot := resolveWebRoot(); webRoot != "" {

@@ -49,11 +49,22 @@
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
+  cursor: grab;
+}
+
+.leaflet-container.korea-map.leaflet-drag-target,
+.korea-map.leaflet-container.leaflet-drag-target {
+  cursor: grabbing;
 }
 
 .korea-map .leaflet-interactive {
   outline: none;
-  cursor: pointer;
+  cursor: grab;
+}
+
+.leaflet-drag-target .korea-map .leaflet-interactive,
+.korea-map.leaflet-drag-target .leaflet-interactive {
+  cursor: grabbing;
 }
 
 .korea-map .leaflet-overlay-pane svg {
@@ -82,32 +93,9 @@
 }
 
 .korea-map path.korea-dokdo-land {
-  pointer-events: none !important;
   stroke-linejoin: round;
   stroke-linecap: round;
-}
-
-.korea-dokdo-label {
-  background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
-  pointer-events: none !important;
-}
-
-.korea-dokdo-label span {
-  display: inline-block;
-  padding: 0.05rem 0.28rem;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(26, 43, 51, 0.14);
-  color: #1a2b33;
-  font-family: "Pretendard Variable", "Pretendard", "Noto Sans KR", sans-serif;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
-  white-space: nowrap;
-  box-shadow: 0 1px 4px rgba(26, 43, 51, 0.12);
+  cursor: pointer;
 }
 
 .leaflet-popup.korea-soon-popup .leaflet-popup-content-wrapper {

@@ -7,8 +7,8 @@
     <meta name="description" content="로그인한 사용자의 시군구 여행 일기를 기록합니다." />
     <link rel="stylesheet" href="../css/intro.css?v=loginHide1" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="../css/korea-map.css?v=canvasH1" />
-    <link rel="stylesheet" href="../css/journey.css?v=journey3" />
+    <link rel="stylesheet" href="../css/korea-map.css?v=mapDrag3" />
+    <link rel="stylesheet" href="../css/journey.css?v=viewScroll2" />
   </head>
   <body class="page-journey">
     <header class="site-nav" role="banner">
@@ -24,7 +24,7 @@
           <p class="section-kicker font-mono">// journey.diary</p>
           <h1 class="section-title font-display" data-journey-title>나의 여정</h1>
           <p class="section-copy" data-journey-copy>
-            시·군·구를 눌러 사진과 제목, 내용을 남기세요. 기록이 있는 지역은 지도에 표시됩니다.
+            시·군·구를 눌러 사진과 제목, 내용을 남기세요. 같은 지역에도 여러 일기를 남길 수 있습니다.
           </p>
           <div class="korea-map-frame">
             <div id="korea-map" class="korea-map" role="application" aria-label="여행 일기용 대한민국 지도"></div>
@@ -41,7 +41,8 @@
 
     <script src="../js/menu.js?v=profileNick1" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>
-    <script src="../js/korea-sig-map.js?v=canvasH1" defer></script>
-    <script src="../js/journey-map.js?v=zoomH40" defer></script>
+    <script src="../js/vendor/polygon-clipping.min.js" defer></script>
+    <script src="../js/korea-sig-map.js?v=cityMerge3" defer></script>
+    <script src="../js/journey-map.js?v=viewScroll2" defer></script>
   </body>
 </html>

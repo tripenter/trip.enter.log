@@ -309,6 +309,113 @@ body.is-journey-lightbox-open {
   cursor: default;
 }
 
+.journey-btn-danger {
+  min-height: 2.45rem;
+  padding: 0 1rem;
+  border: 0;
+  border-radius: 10px;
+  background: #b34a3b;
+  color: #fff;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.journey-btn-danger:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.journey-view-modal .journey-modal-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.journey-view-modal .journey-modal-region {
+  flex-shrink: 0;
+  margin-bottom: 0.65rem;
+}
+
+.journey-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1;
+  min-height: 0;
+}
+
+.journey-view-date {
+  margin: 0;
+  flex-shrink: 0;
+  color: rgba(26, 43, 51, 0.55);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+
+.journey-view-title {
+  margin: 0;
+  flex-shrink: 0;
+  color: var(--ink, #1a2b33);
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.journey-view-body-scroll {
+  flex: 1 1 auto;
+  min-height: 5rem;
+  max-height: 100%;
+  overflow: auto;
+  padding-right: 0.2rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.journey-view-photos-field {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+.journey-view-photos {
+  max-height: 9.5rem;
+  overflow: auto;
+  padding-right: 0.15rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.journey-view-modal .journey-form-status,
+.journey-view-modal .journey-form-actions {
+  flex-shrink: 0;
+}
+
+.journey-view-body {
+  margin: 0;
+  min-height: 4.5rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(26, 43, 51, 0.08);
+  color: rgba(26, 43, 51, 0.88);
+  white-space: pre-wrap;
+  line-height: 1.55;
+  font-size: 0.92rem;
+}
+
+.journey-view-body.is-empty {
+  color: rgba(26, 43, 51, 0.42);
+}
+
+.journey-view-empty {
+  margin: 0;
+  color: rgba(26, 43, 51, 0.45);
+  font-size: 0.82rem;
+}
+
+.journey-photo-item.is-readonly .journey-photo-view {
+  cursor: zoom-in;
+}
+
 body.is-journey-open {
   overflow: hidden;
 }
@@ -329,6 +436,30 @@ body.is-journey-open {
 .nav-journey:hover,
 .nav-journey:focus-visible {
   color: var(--pine, #2f6f5e);
+  outline: none;
+}
+
+.korea-choice-record {
+  display: block;
+  width: 100%;
+  margin-top: 0.15rem;
+  min-height: 2.2rem;
+  padding: 0.45rem 0.75rem;
+  border: 0;
+  border-radius: 8px;
+  background: var(--pine, #2f6f5e);
+  color: #fff;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  text-align: center;
+}
+
+.korea-choice-record:hover,
+.korea-choice-record:focus-visible {
+  filter: brightness(1.06);
   outline: none;
 }
 

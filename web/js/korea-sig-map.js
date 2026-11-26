@@ -1,6 +1,6 @@
 /**
  * 시·군·구 Leaflet 지도 코어.
- * - 배율 고정, 확대/축소·드래그 없음
+ * - 배율 고정(확대/축소 없음), 마우스 드래그로 지도 이동 가능
  * - 지역 하이라이트 / 데이터 연결 지역 표시
  * - hover·click 콜백으로 페이지별 데이터(메뉴·텍스트·사진 등) 연동
  *
@@ -17,7 +17,130 @@
   const DEFAULT_NK_OUTLINE_URL = "/data/korea-nk-outline.geojson";
   const DEFAULT_DOKDO_URL = "/data/korea-dokdo.geojson";
   // 독도(동도·서도) 표기용 — 전국 배율에서도 보이도록 약간 확대한 도형 + 라벨
-  const DOKDO_LABEL_LATLNG = [37.242, 131.868];
+  // 울릉·독도는 시각적으로 이동해 표시한다. 독도는 울릉도 크기의 40%로 맞춘다.
+  const EAST_ISLAND_LNG_SHIFT = -1.0; // 울릉군
+  const DOKDO_LNG_SHIFT = -1.6; // 독도 (서 1.8 → 동 0.2)
+  const DOKDO_LAT_SHIFT = 0.1; // 독도 북쪽으로
+  const DOKDO_TO_ULLEUNG_SIZE = 0.4;
+  const EAST_ISLAND_CODES = new Set(["37430"]); // 울릉군
+  const ULLEUNG_BODY_LNG_MAX = 131.2; // 울릉 본체(독도 첨점 제외)
+  const ONGJIN_CODE = "23320"; // 인천 옹진군
+  const ONGJIN_LNG_SHIFT = 0.2; // 동
+  const ONGJIN_LAT_SHIFT = -0.1; // 남
+
+  // 서울은 한강 기준으로 강북/강남만 표시한다.
+  const SEOUL_GANGBUK_CODE = "11901";
+  const SEOUL_GANGNAM_CODE = "11902";
+  const SEOUL_GANGBUK_GU_CODES = [
+    "11010", // 종로구
+    "11020", // 중구
+    "11030", // 용산구
+    "11040", // 성동구
+    "11050", // 광진구
+    "11060", // 동대문구
+    "11070", // 중랑구
+    "11080", // 성북구
+    "11090", // 강북구
+    "11100", // 도봉구
+    "11110", // 노원구
+    "11120", // 은평구
+    "11130", // 서대문구
+    "11140", // 마포구
+  ];
+  const SEOUL_GANGNAM_GU_CODES = [
+    "11150", // 양천구
+    "11160", // 강서구
+    "11170", // 구로구
+    "11180", // 금천구
+    "11190", // 영등포구
+    "11200", // 동작구
+    "11210", // 관악구
+    "11220", // 서초구
+    "11230", // 강남구
+    "11240", // 송파구
+    "11250", // 강동구
+  ];
+  const SEOUL_GANGBUK_SET = new Set(SEOUL_GANGBUK_GU_CODES);
+  const SEOUL_GANGNAM_SET = new Set(SEOUL_GANGNAM_GU_CODES);
+  const SEOUL_GU_TO_BANK = {};
+  SEOUL_GANGBUK_GU_CODES.forEach((code) => {
+    SEOUL_GU_TO_BANK[code] = SEOUL_GANGBUK_CODE;
+  });
+  SEOUL_GANGNAM_GU_CODES.forEach((code) => {
+    SEOUL_GU_TO_BANK[code] = SEOUL_GANGNAM_CODE;
+  });
+
+  // 자치구가 있는 시는 구를 시 단위로 합친다. (이미 시·군인 지역은 그대로)
+  const CITY_MERGE_GROUPS = [
+    { cityCode: "31010", cityName: "수원시", prefix: "31", guCodes: ["31011", "31012", "31013", "31014"] },
+    { cityCode: "31020", cityName: "성남시", prefix: "31", guCodes: ["31021", "31022", "31023"] },
+    { cityCode: "31040", cityName: "안양시", prefix: "31", guCodes: ["31041", "31042"] },
+    { cityCode: "31090", cityName: "안산시", prefix: "31", guCodes: ["31091", "31092"] },
+    { cityCode: "31100", cityName: "고양시", prefix: "31", guCodes: ["31101", "31103", "31104"] },
+    { cityCode: "31190", cityName: "용인시", prefix: "31", guCodes: ["31191", "31192", "31193"] },
+    { cityCode: "33040", cityName: "청주시", prefix: "33", guCodes: ["33041", "33042", "33043", "33044"] },
+    { cityCode: "35010", cityName: "전주시", prefix: "35", guCodes: ["35011", "35012"] },
+  ];
+  const CITY_GU_TO_CITY = {};
+  CITY_MERGE_GROUPS.forEach((group) => {
+    group.guCodes.forEach((code) => {
+      CITY_GU_TO_CITY[code] = group.cityCode;
+    });
+  });
+
+  // 광역시는 구·군을 하나의 덩어리로 합친다. (서울·도는 별도 규칙)
+  const METRO_MERGE_GROUPS = [
+    {
+      mergedCode: "21000",
+      name: "부산",
+      prefix: "21",
+      kind: "busan-metro",
+      memberCodes: [
+        "21010", "21020", "21030", "21040", "21050", "21060", "21070", "21080",
+        "21090", "21100", "21110", "21120", "21130", "21140", "21150", "21310",
+      ],
+    },
+    {
+      mergedCode: "22000",
+      name: "대구",
+      prefix: "22",
+      kind: "daegu-metro",
+      memberCodes: [
+        "22010", "22020", "22030", "22040", "22050", "22060", "22070", "22310",
+      ],
+    },
+    {
+      mergedCode: "24000",
+      name: "광주",
+      prefix: "24",
+      kind: "gwangju-metro",
+      memberCodes: ["24010", "24020", "24030", "24040", "24050"],
+    },
+    {
+      mergedCode: "25000",
+      name: "대전",
+      prefix: "25",
+      kind: "daejeon-metro",
+      memberCodes: ["25010", "25020", "25030", "25040", "25050"],
+    },
+    {
+      mergedCode: "26000",
+      name: "울산",
+      prefix: "26",
+      kind: "ulsan-metro",
+      memberCodes: ["26010", "26020", "26030", "26040", "26310"],
+    },
+  ];
+  const METRO_MERGED_NAME_BY_CODE = {};
+  const METRO_CODE_BY_MEMBER = {};
+  const METRO_GROUP_BY_PREFIX = {};
+  METRO_MERGE_GROUPS.forEach((group) => {
+    METRO_MERGED_NAME_BY_CODE[group.mergedCode] = group.name;
+    METRO_GROUP_BY_PREFIX[group.prefix] = group;
+    group.memberCodes.forEach((code) => {
+      METRO_CODE_BY_MEMBER[code] = group.mergedCode;
+    });
+  });
 
   const NK_OUTLINE = {
     stroke: true,
@@ -209,8 +332,12 @@
 
   function displayDistrictName(name, code) {
     const raw = String(name || "");
+    const codeStr = String(code || "");
+    if (codeStr === SEOUL_GANGBUK_CODE) return "서울 강북";
+    if (codeStr === SEOUL_GANGNAM_CODE) return "서울 강남";
+    if (METRO_MERGED_NAME_BY_CODE[codeStr]) return METRO_MERGED_NAME_BY_CODE[codeStr];
     const formatted = formatName(raw);
-    const region = REGION_BY_PREFIX[String(code || "").slice(0, 2)];
+    const region = REGION_BY_PREFIX[codeStr.slice(0, 2)];
     if (!region) return formatted;
     if (/^(.+시)(.+구)$/.test(raw)) return formatted;
     if (region.kind === "metro") {
@@ -218,6 +345,397 @@
       return `${region.label} ${formatted}`;
     }
     return `${region.label} ${formatted}`;
+  }
+
+  function seoulBankCodeFor(code) {
+    return SEOUL_GU_TO_BANK[String(code || "")] || "";
+  }
+
+  function cityMergedCodeFor(code) {
+    return CITY_GU_TO_CITY[String(code || "")] || "";
+  }
+
+  function metroMergedCodeFor(code) {
+    const codeStr = String(code || "");
+    if (METRO_MERGED_NAME_BY_CODE[codeStr]) return codeStr;
+    if (METRO_CODE_BY_MEMBER[codeStr]) return METRO_CODE_BY_MEMBER[codeStr];
+    const group = METRO_GROUP_BY_PREFIX[codeStr.slice(0, 2)];
+    return group ? group.mergedCode : "";
+  }
+
+  function featureToClipGeom(feature) {
+    const geom = feature && feature.geometry;
+    if (!geom || !Array.isArray(geom.coordinates)) return null;
+    // polygon-clipping: Geom = Polygon[] , Polygon = Ring[]
+    if (geom.type === "Polygon") return [geom.coordinates];
+    if (geom.type === "MultiPolygon") return geom.coordinates;
+    return null;
+  }
+
+  function unionBankGeometry(features) {
+    const geoms = [];
+    features.forEach((feature) => {
+      const geom = featureToClipGeom(feature);
+      if (geom && geom.length) geoms.push(geom);
+    });
+    if (!geoms.length) return null;
+
+    const clipper =
+      (typeof window !== "undefined" && window.polygonClipping) ||
+      (typeof polygonClipping !== "undefined" ? polygonClipping : null);
+    if (clipper && typeof clipper.union === "function") {
+      try {
+        const united = clipper.union(...geoms);
+        if (Array.isArray(united) && united.length) {
+          // 구 경계 틈이 hole로 남아 획이 그려지므로 외곽 링만 사용한다.
+          const exteriors = united.map((poly) => [poly[0]]);
+          return exteriors.length === 1
+            ? { type: "Polygon", coordinates: exteriors[0] }
+            : { type: "MultiPolygon", coordinates: exteriors };
+        }
+      } catch (_) {
+        // fall through — MultiPolygon concat (내부 경계가 남을 수 있음)
+      }
+    }
+
+    const coordinates = [];
+    geoms.forEach((geom) => {
+      geom.forEach((poly) => coordinates.push(poly));
+    });
+    return { type: "MultiPolygon", coordinates };
+  }
+
+  function mergeSeoulBanks(geojson) {
+    if (!geojson || !Array.isArray(geojson.features)) return geojson;
+    const others = [];
+    const gangbuk = [];
+    const gangnam = [];
+    const guMeta = [];
+
+    geojson.features.forEach((feature) => {
+      const code = String((feature.properties && feature.properties.code) || "");
+      const name = (feature.properties && feature.properties.name) || "";
+      if (SEOUL_GANGBUK_SET.has(code)) {
+        gangbuk.push(feature);
+        guMeta.push({ code, name, bankCode: SEOUL_GANGBUK_CODE, bankName: "강북" });
+        return;
+      }
+      if (SEOUL_GANGNAM_SET.has(code)) {
+        gangnam.push(feature);
+        guMeta.push({ code, name, bankCode: SEOUL_GANGNAM_CODE, bankName: "강남" });
+        return;
+      }
+      // 혹시 남은 서울 코드도 강북으로 흡수
+      if (code.startsWith("11")) {
+        gangbuk.push(feature);
+        guMeta.push({ code, name, bankCode: SEOUL_GANGBUK_CODE, bankName: "강북" });
+        return;
+      }
+      others.push(feature);
+    });
+
+    const buildBank = (list, bankCode, bankName) => {
+      const memberCodes = list
+        .map((feature) => String((feature.properties && feature.properties.code) || ""))
+        .filter(Boolean);
+      const geometry = unionBankGeometry(list);
+      if (!geometry) return null;
+      return {
+        type: "Feature",
+        properties: {
+          name: bankName,
+          code: bankCode,
+          kind: "seoul-bank",
+          memberCodes,
+        },
+        geometry,
+      };
+    };
+
+    const features = others.slice();
+    const buk = buildBank(gangbuk, SEOUL_GANGBUK_CODE, "강북");
+    const nam = buildBank(gangnam, SEOUL_GANGNAM_CODE, "강남");
+    if (buk) features.push(buk);
+    if (nam) features.push(nam);
+    return {
+      type: "FeatureCollection",
+      features,
+      _seoulGuMeta: guMeta,
+    };
+  }
+
+  function mergeCityDistricts(geojson) {
+    if (!geojson || !Array.isArray(geojson.features)) return geojson;
+    const guToGroup = new Map();
+    CITY_MERGE_GROUPS.forEach((group) => {
+      group.guCodes.forEach((code) => guToGroup.set(code, group));
+    });
+
+    const buckets = new Map();
+    const guMeta = [];
+    const others = [];
+
+    geojson.features.forEach((feature) => {
+      const code = String((feature.properties && feature.properties.code) || "");
+      const name = (feature.properties && feature.properties.name) || "";
+      const group = guToGroup.get(code);
+      if (!group) {
+        others.push(feature);
+        return;
+      }
+      if (!buckets.has(group.cityCode)) {
+        buckets.set(group.cityCode, { group, list: [] });
+      }
+      buckets.get(group.cityCode).list.push(feature);
+      guMeta.push({
+        code,
+        name,
+        cityCode: group.cityCode,
+        cityName: group.cityName,
+        prefix: group.prefix,
+      });
+    });
+
+    const features = others.slice();
+    buckets.forEach(({ group, list }) => {
+      const memberCodes = list
+        .map((feature) => String((feature.properties && feature.properties.code) || ""))
+        .filter(Boolean);
+      const geometry = unionBankGeometry(list);
+      if (!geometry) return;
+      features.push({
+        type: "Feature",
+        properties: {
+          name: group.cityName,
+          code: group.cityCode,
+          kind: "city-merge",
+          memberCodes,
+        },
+        geometry,
+      });
+    });
+
+    return {
+      type: "FeatureCollection",
+      features,
+      _seoulGuMeta: geojson._seoulGuMeta,
+      _cityGuMeta: guMeta,
+    };
+  }
+
+  function mergeMetroRegions(geojson) {
+    if (!geojson || !Array.isArray(geojson.features)) return geojson;
+    const buckets = new Map();
+    const guMeta = [];
+    const others = [];
+
+    geojson.features.forEach((feature) => {
+      const code = String((feature.properties && feature.properties.code) || "");
+      const name = (feature.properties && feature.properties.name) || "";
+      const group = METRO_GROUP_BY_PREFIX[code.slice(0, 2)];
+      if (!group) {
+        others.push(feature);
+        return;
+      }
+      if (!buckets.has(group.mergedCode)) {
+        buckets.set(group.mergedCode, { group, list: [] });
+      }
+      buckets.get(group.mergedCode).list.push(feature);
+      guMeta.push({
+        code,
+        name,
+        metroCode: group.mergedCode,
+        metroName: group.name,
+        prefix: group.prefix,
+      });
+    });
+
+    const features = others.slice();
+    buckets.forEach(({ group, list }) => {
+      const memberCodes = list
+        .map((feature) => String((feature.properties && feature.properties.code) || ""))
+        .filter(Boolean);
+      const geometry = unionBankGeometry(list);
+      if (!geometry) return;
+      features.push({
+        type: "Feature",
+        properties: {
+          name: group.name,
+          code: group.mergedCode,
+          kind: group.kind,
+          memberCodes,
+        },
+        geometry,
+      });
+    });
+
+    return {
+      type: "FeatureCollection",
+      features,
+      _seoulGuMeta: geojson._seoulGuMeta,
+      _cityGuMeta: geojson._cityGuMeta,
+      _metroGuMeta: guMeta,
+    };
+  }
+
+  function shiftCoords(coords, deltaLng, deltaLat = 0) {
+    if (!Array.isArray(coords) || !coords.length) return coords;
+    if (typeof coords[0] === "number") {
+      return [coords[0] + deltaLng, coords[1] + deltaLat];
+    }
+    return coords.map((part) => shiftCoords(part, deltaLng, deltaLat));
+  }
+
+  function shiftFeature(feature, deltaLng, deltaLat = 0) {
+    if (!feature || !feature.geometry || !Array.isArray(feature.geometry.coordinates)) {
+      return feature;
+    }
+    if (!deltaLng && !deltaLat) return feature;
+    return {
+      ...feature,
+      geometry: {
+        ...feature.geometry,
+        coordinates: shiftCoords(feature.geometry.coordinates, deltaLng, deltaLat),
+      },
+    };
+  }
+
+  function keepUlleungBodyOnly(feature) {
+    if (!feature || !feature.geometry) return feature;
+    const geom = feature.geometry;
+    if (geom.type !== "MultiPolygon" || !Array.isArray(geom.coordinates)) return feature;
+    const kept = geom.coordinates.filter((poly) => {
+      const pts = collectLngLat(poly);
+      if (!pts.length) return false;
+      return pointsBBox(pts).cx < ULLEUNG_BODY_LNG_MAX;
+    });
+    if (!kept.length) return feature;
+    return {
+      ...feature,
+      geometry: {
+        ...geom,
+        coordinates: kept,
+      },
+    };
+  }
+
+  function shiftEastIslands(geojson) {
+    if (!geojson || !Array.isArray(geojson.features)) return geojson;
+    return {
+      ...geojson,
+      features: geojson.features.map((feature) => {
+        const code = String((feature.properties && feature.properties.code) || "");
+        const kind = String((feature.properties && feature.properties.kind) || "");
+        if (kind === "dokdo") {
+          return shiftFeature(feature, DOKDO_LNG_SHIFT, DOKDO_LAT_SHIFT);
+        }
+        if (EAST_ISLAND_CODES.has(code)) {
+          // 울릉군 MultiPolygon에 섞인 독도 첨점은 제거하고 본체만 이동
+          const body = keepUlleungBodyOnly(feature);
+          return shiftFeature(body, EAST_ISLAND_LNG_SHIFT, 0);
+        }
+        if (code === ONGJIN_CODE) {
+          return shiftFeature(feature, ONGJIN_LNG_SHIFT, ONGJIN_LAT_SHIFT);
+        }
+        return feature;
+      }),
+    };
+  }
+
+  function collectLngLat(coords, out = []) {
+    if (!Array.isArray(coords) || !coords.length) return out;
+    if (typeof coords[0] === "number") {
+      out.push([coords[0], coords[1]]);
+      return out;
+    }
+    coords.forEach((part) => collectLngLat(part, out));
+    return out;
+  }
+
+  function pointsBBox(pts) {
+    let minLng = Infinity;
+    let maxLng = -Infinity;
+    let minLat = Infinity;
+    let maxLat = -Infinity;
+    pts.forEach(([lng, lat]) => {
+      if (lng < minLng) minLng = lng;
+      if (lng > maxLng) maxLng = lng;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+    });
+    const width = maxLng - minLng;
+    const height = maxLat - minLat;
+    return {
+      minLng,
+      maxLng,
+      minLat,
+      maxLat,
+      width,
+      height,
+      diag: Math.hypot(width, height),
+      cx: (minLng + maxLng) / 2,
+      cy: (minLat + maxLat) / 2,
+    };
+  }
+
+  function scaleCoordsAround(coords, scale, cx, cy) {
+    if (!Array.isArray(coords) || !coords.length) return coords;
+    if (typeof coords[0] === "number") {
+      return [cx + (coords[0] - cx) * scale, cy + (coords[1] - cy) * scale];
+    }
+    return coords.map((part) => scaleCoordsAround(part, scale, cx, cy));
+  }
+
+  function scaleFeatureAround(feature, scale, cx, cy) {
+    if (!feature || !feature.geometry || !Array.isArray(feature.geometry.coordinates)) {
+      return feature;
+    }
+    return {
+      ...feature,
+      geometry: {
+        ...feature.geometry,
+        coordinates: scaleCoordsAround(feature.geometry.coordinates, scale, cx, cy),
+      },
+    };
+  }
+
+  function findFeatureByCode(geojson, code) {
+    const want = String(code);
+    return (geojson && geojson.features ? geojson.features : []).find(
+      (feature) => String((feature.properties && feature.properties.code) || "") === want
+    );
+  }
+
+  function prepareDokdoGeojson(rawDokdo, sourceGeojson) {
+    if (!rawDokdo || !Array.isArray(rawDokdo.features) || !rawDokdo.features.length) {
+      return rawDokdo;
+    }
+    let feature = rawDokdo.features[0];
+    const dokPts = collectLngLat(feature.geometry && feature.geometry.coordinates);
+    if (!dokPts.length) return rawDokdo;
+    const dokBox = pointsBBox(dokPts);
+
+    let scale = 1;
+    const ulleung = findFeatureByCode(sourceGeojson, "37430");
+    if (ulleung && dokBox.diag > 0) {
+      const ullPts = collectLngLat(ulleung.geometry && ulleung.geometry.coordinates).filter(
+        ([lng]) => lng < ULLEUNG_BODY_LNG_MAX
+      );
+      const ullBox = pointsBBox(ullPts.length ? ullPts : collectLngLat(ulleung.geometry.coordinates));
+      if (ullBox.diag > 0) {
+        scale = (DOKDO_TO_ULLEUNG_SIZE * ullBox.diag) / dokBox.diag;
+      }
+    }
+
+    feature = scaleFeatureAround(feature, scale, dokBox.cx, dokBox.cy);
+    feature = shiftFeature(feature, DOKDO_LNG_SHIFT, DOKDO_LAT_SHIFT);
+    const labelPts = collectLngLat(feature.geometry.coordinates);
+    const labelBox = pointsBBox(labelPts);
+    return {
+      type: "FeatureCollection",
+      features: [feature],
+      _labelLatLng: [labelBox.cy, labelBox.cx],
+    };
   }
 
   function ringStat(ring) {
@@ -277,13 +795,16 @@
   }
 
   function buildDistricts(collection) {
-    return (collection.features || [])
+    const districts = (collection.features || [])
       .map((feature) => {
         const name = feature.properties && feature.properties.name;
         const code = String((feature.properties && feature.properties.code) || "");
         const center = featureCentroid(feature.geometry || {});
         if (!name || !code || !center) return null;
         const compound = name.match(/^(.+시)(.+구)$/);
+        const memberCodes = Array.isArray(feature.properties && feature.properties.memberCodes)
+          ? feature.properties.memberCodes.map(String)
+          : [code];
         const district = {
           name,
           code,
@@ -292,6 +813,7 @@
           lat: center.lat,
           lng: center.lng,
           aliases: aliasesFor(name),
+          memberCodes,
         };
         METROS.forEach((metro) => {
           if (metro.prefix === district.prefix) {
@@ -301,6 +823,78 @@
         return district;
       })
       .filter(Boolean);
+
+    // 메뉴 WM_Region이 개별 구명이어도 합쳐진 구역으로 매칭되도록 가상 구 엔트리를 추가
+    const byCode = new Map(districts.map((d) => [d.code, d]));
+    const seoulGuMeta = Array.isArray(collection && collection._seoulGuMeta) ? collection._seoulGuMeta : [];
+    seoulGuMeta.forEach((meta) => {
+      const bank = byCode.get(meta.bankCode);
+      if (!bank || !meta.name) return;
+      const aliases = aliasesFor(meta.name);
+      aliases.push({ text: "서울", rank: 1, kind: "metro" });
+      districts.push({
+        name: meta.name,
+        code: meta.bankCode,
+        prefix: "11",
+        city: "",
+        lat: bank.lat,
+        lng: bank.lng,
+        aliases,
+        memberCodes: bank.memberCodes || [meta.bankCode],
+        guCode: meta.code,
+      });
+    });
+
+    const cityGuMeta = Array.isArray(collection && collection._cityGuMeta)
+      ? collection._cityGuMeta
+      : [];
+    cityGuMeta.forEach((meta) => {
+      const city = byCode.get(meta.cityCode);
+      if (!city || !meta.name) return;
+      const aliases = aliasesFor(meta.name);
+      const prefix = meta.prefix || String(meta.cityCode).slice(0, 2);
+      const region = REGION_BY_PREFIX[prefix];
+      if (region && region.label) {
+        aliases.push({ text: region.label, rank: 1, kind: "metro" });
+        if (region.label.endsWith("도")) {
+          aliases.push({ text: region.label.replace(/도$/, ""), rank: 1, kind: "metro" });
+        }
+      }
+      districts.push({
+        name: meta.name,
+        code: meta.cityCode,
+        prefix,
+        city: meta.cityName || "",
+        lat: city.lat,
+        lng: city.lng,
+        aliases,
+        memberCodes: city.memberCodes || [meta.cityCode],
+        guCode: meta.code,
+      });
+    });
+
+    const metroGuMeta = Array.isArray(collection && collection._metroGuMeta)
+      ? collection._metroGuMeta
+      : [];
+    metroGuMeta.forEach((meta) => {
+      const metro = byCode.get(meta.metroCode);
+      if (!metro || !meta.name) return;
+      const aliases = aliasesFor(meta.name);
+      if (meta.metroName) aliases.push({ text: meta.metroName, rank: 1, kind: "metro" });
+      districts.push({
+        name: meta.name,
+        code: meta.metroCode,
+        prefix: meta.prefix || String(meta.metroCode).slice(0, 2),
+        city: "",
+        lat: metro.lat,
+        lng: metro.lng,
+        aliases,
+        memberCodes: metro.memberCodes || [meta.metroCode],
+        guCode: meta.code,
+      });
+    });
+
+    return districts;
   }
 
   function prefixesFromContext(nodes) {
@@ -489,8 +1083,11 @@
       if (statusEl) statusEl.textContent = text;
     };
 
+    // SVG 시군구 레이어 위에서 Leaflet 기본 dragging이 자주 끊기므로
+    // 기본 드래그는 끄고 포인터 팬을 직접 처리한다.
     const map = window.L.map(mapEl, {
       dragging: false,
+      inertia: false,
       scrollWheelZoom: false,
       doubleClickZoom: false,
       touchZoom: false,
@@ -608,6 +1205,83 @@
       hideTimer = 0;
     };
 
+    const dismissAllMapTips = ({ resetActive = false } = {}) => {
+      cancelHideHoverPopup();
+      dismissHoverPopup();
+      dismissEmptyPopup();
+      layersByCode.forEach((layer) => {
+        if (layer && typeof layer.closeTooltip === "function") layer.closeTooltip();
+      });
+      if (dokdoLayer) {
+        dokdoLayer.eachLayer((layer) => {
+          if (layer && typeof layer.closeTooltip === "function") layer.closeTooltip();
+        });
+      }
+      if (typeof map.closeTooltip === "function") map.closeTooltip();
+      if (resetActive) setActiveCode(null);
+      setStatus(itemCount ? withItemsStatus : idleStatus);
+    };
+
+    let pointerPan = null;
+    let suppressNextRegionClick = false;
+    const isMapPanning = () => Boolean(pointerPan && pointerPan.moved);
+
+    const onPointerPanMove = (event) => {
+      if (!pointerPan) return;
+      const dx = event.clientX - pointerPan.x;
+      const dy = event.clientY - pointerPan.y;
+      if (!pointerPan.moved) {
+        if (dx * dx + dy * dy < 16) return;
+        pointerPan.moved = true;
+        suppressNextRegionClick = true;
+        map.getContainer().classList.add("leaflet-drag-target");
+        dismissAllMapTips({ resetActive: false });
+        map.fire("dragstart");
+      }
+      const startPoint = map.latLngToContainerPoint(pointerPan.center);
+      const nextCenter = map.containerPointToLatLng([startPoint.x - dx, startPoint.y - dy]);
+      map.setView(nextCenter, map.getZoom(), { animate: false });
+      map.fire("drag");
+    };
+
+    const onPointerPanUp = () => {
+      if (!pointerPan) return;
+      const moved = pointerPan.moved;
+      pointerPan = null;
+      window.removeEventListener("pointermove", onPointerPanMove, true);
+      window.removeEventListener("pointerup", onPointerPanUp, true);
+      window.removeEventListener("pointercancel", onPointerPanUp, true);
+      map.getContainer().classList.remove("leaflet-drag-target");
+      if (moved) {
+        setActiveCode(null);
+        map.fire("dragend");
+        // 드래그 직후 click이 한 번 더 들어오는 것을 짧게 무시
+        window.setTimeout(() => {
+          suppressNextRegionClick = false;
+        }, 0);
+      }
+    };
+
+    map.getContainer().addEventListener(
+      "pointerdown",
+      (event) => {
+        if (event.button != null && event.button !== 0) return;
+        if (event.target && event.target.closest && event.target.closest(".leaflet-popup, .leaflet-control")) {
+          return;
+        }
+        pointerPan = {
+          x: event.clientX,
+          y: event.clientY,
+          center: map.getCenter(),
+          moved: false,
+        };
+        window.addEventListener("pointermove", onPointerPanMove, true);
+        window.addEventListener("pointerup", onPointerPanUp, true);
+        window.addEventListener("pointercancel", onPointerPanUp, true);
+      },
+      true
+    );
+
     const showHoverPopup = (items, latlng, districtName, code) => {
       dismissEmptyPopup();
       cancelHideHoverPopup();
@@ -720,6 +1394,112 @@
 
     let viewInitialized = false;
 
+    const collectMatchedItems = (codes) => {
+      const seen = new Set();
+      const matched = [];
+      (codes || []).forEach((code) => {
+        (itemsByCode.get(String(code)) || []).forEach((item) => {
+          const key = item && item.id != null ? `id:${item.id}` : `ref:${matched.length}`;
+          if (seen.has(key)) return;
+          seen.add(key);
+          matched.push(item);
+        });
+      });
+      return matched;
+    };
+
+    const attachRegionHandlers = (layer, { code, name, memberCodes = null, registerLayer = true } = {}) => {
+      const regionCode = String(code || "");
+      const regionName = name || regionCode;
+      const lookupCodes = Array.isArray(memberCodes) && memberCodes.length
+        ? Array.from(new Set([regionCode].concat(memberCodes.map(String))))
+        : [regionCode];
+      const matched = collectMatchedItems(lookupCodes);
+      if (registerLayer) {
+        layersByCode.set(regionCode, layer);
+        lookupCodes.forEach((memberCode) => layersByCode.set(String(memberCode), layer));
+      }
+
+      if (typeof layer.unbindTooltip === "function") layer.unbindTooltip();
+      layer.off("mouseover");
+      layer.off("mouseout");
+      layer.off("click");
+
+      if (!matched.length) {
+        layer.bindTooltip(regionName, {
+          permanent: false,
+          sticky: true,
+          direction: "bottom",
+          offset: [0, 14],
+          className: "korea-name-label",
+          opacity: 1,
+        });
+      }
+
+      layer.on("mouseover", (event) => {
+        if (isMapPanning()) return;
+        dismissEmptyPopup();
+        setActiveCode(regionCode);
+        if (matched.length) {
+          const anchor = event.latlng || layer.getBounds().getCenter();
+          showHoverPopup(matched, anchor, regionName, regionCode);
+        } else {
+          scheduleHideHoverPopup();
+          setStatus(regionName);
+        }
+        if (typeof options.onRegionEnter === "function") {
+          options.onRegionEnter({ code: regionCode, name: regionName, items: matched, latlng: event.latlng });
+        }
+      });
+
+      layer.on("mouseout", (event) => {
+        if (isMapPanning()) return;
+        const related = event.originalEvent && event.originalEvent.relatedTarget;
+        const popupEl = hoverPopup && hoverPopup.getElement();
+        if (related && popupEl && popupEl.contains(related)) {
+          if (matched.length) scheduleHideHoverPopup();
+          return;
+        }
+        if (typeof layer.closeTooltip === "function") layer.closeTooltip();
+        if (activeCode === regionCode) setActiveCode(null);
+        if (matched.length) scheduleHideHoverPopup();
+        else setStatus(itemCount ? withItemsStatus : idleStatus);
+        if (typeof options.onRegionLeave === "function") {
+          options.onRegionLeave({ code: regionCode, name: regionName, items: matched });
+        }
+      });
+
+      layer.on("click", (event) => {
+        if (suppressNextRegionClick || isMapPanning()) {
+          window.L.DomEvent.stopPropagation(event);
+          if (event.originalEvent) window.L.DomEvent.preventDefault(event.originalEvent);
+          return;
+        }
+        window.L.DomEvent.stopPropagation(event);
+        const latlng = event.latlng || layer.getBounds().getCenter();
+        if (matched.length) {
+          showHoverPopup(matched, latlng, regionName, regionCode);
+        } else {
+          showEmptyClick(latlng, { code: regionCode, name: regionName });
+        }
+        if (typeof options.onRegionClick === "function") {
+          options.onRegionClick({ code: regionCode, name: regionName, items: matched, latlng });
+        }
+      });
+    };
+
+    const bindDokdoHandlers = () => {
+      if (!dokdoLayer) return;
+      dokdoLayer.eachLayer((layer) => {
+        // 행정구역상 울릉군(37430). 표시명은 독도.
+        attachRegionHandlers(layer, {
+          code: "37430",
+          name: "독도",
+          registerLayer: false,
+        });
+      });
+    };
+
     const bindRegions = ({ resetView = false } = {}) => {
       if (geoLayer) {
         map.removeLayer(geoLayer);
@@ -732,67 +1512,14 @@
         onEachFeature: (feature, layer) => {
           const code = String(feature.properties.code);
           const name = displayDistrictName(feature.properties.name || "", code);
-          const matched = itemsByCode.get(code) || [];
-          layersByCode.set(code, layer);
-
-          if (!matched.length) {
-            layer.bindTooltip(name, {
-              permanent: false,
-              sticky: true,
-              direction: "bottom",
-              offset: [0, 14],
-              className: "korea-name-label",
-              opacity: 1,
-            });
-          }
-
-          layer.on("mouseover", (event) => {
-            dismissEmptyPopup();
-            setActiveCode(code);
-            if (matched.length) {
-              const anchor = event.latlng || layer.getBounds().getCenter();
-              showHoverPopup(matched, anchor, name, code);
-            } else {
-              // 다른 지역으로 옮기면 열려 있던 목록은 지연 후 닫는다.
-              scheduleHideHoverPopup();
-              setStatus(name);
-            }
-            if (typeof options.onRegionEnter === "function") {
-              options.onRegionEnter({ code, name, items: matched, latlng: event.latlng });
-            }
-          });
-
-          layer.on("mouseout", (event) => {
-            const related = event.originalEvent && event.originalEvent.relatedTarget;
-            const popupEl = hoverPopup && hoverPopup.getElement();
-            if (related && popupEl && popupEl.contains(related)) {
-              if (matched.length) scheduleHideHoverPopup();
-              return;
-            }
-            if (typeof layer.closeTooltip === "function") layer.closeTooltip();
-            if (activeCode === code) setActiveCode(null);
-            if (matched.length) scheduleHideHoverPopup();
-            else setStatus(itemCount ? withItemsStatus : idleStatus);
-            if (typeof options.onRegionLeave === "function") {
-              options.onRegionLeave({ code, name, items: matched });
-            }
-          });
-
-          layer.on("click", (event) => {
-            window.L.DomEvent.stopPropagation(event);
-            const latlng = event.latlng || layer.getBounds().getCenter();
-            if (matched.length) {
-              showHoverPopup(matched, latlng, name, code);
-            } else {
-              showEmptyClick(latlng, { code, name });
-            }
-            if (typeof options.onRegionClick === "function") {
-              options.onRegionClick({ code, name, items: matched, latlng });
-            }
-          });
+          const memberCodes = Array.isArray(feature.properties.memberCodes)
+            ? feature.properties.memberCodes.map(String)
+            : null;
+          attachRegionHandlers(layer, { code, name, memberCodes, registerLayer: true });
         },
       }).addTo(map);
 
+      bindDokdoHandlers();
       paintActiveOverlays();
       // 초기 1회만 fitBounds/zoom 고정. 일기 저장 후 setItems 시 재확대 방지.
       // 남한(+독도)만 프레임에 맞춘다. 북한 아웃라인은 배율 계산에서 제외(잘려도 됨).
@@ -831,7 +1558,16 @@
       itemCount = list.length;
       activeCodes = new Set();
       list.forEach((item) => {
-        (item.codes || []).forEach((code) => activeCodes.add(String(code)));
+        (item.codes || []).forEach((rawCode) => {
+          const code = String(rawCode);
+          activeCodes.add(code);
+          const bank = seoulBankCodeFor(code);
+          if (bank) activeCodes.add(bank);
+          const city = cityMergedCodeFor(code);
+          if (city) activeCodes.add(city);
+          const metro = metroMergedCodeFor(code);
+          if (metro) activeCodes.add(metro);
+        });
       });
       if (collection) {
         dismissHoverPopup();
@@ -866,44 +1602,37 @@
         });
     };
 
-    const loadDokdo = () => {
+    const fetchDokdo = () => {
       if (!dokdoUrl) return Promise.resolve(null);
       return fetch(dokdoUrl)
         .then((response) => {
           if (!response.ok) throw new Error(`dokdo ${response.status}`);
           return response.json();
         })
-        .then((geojson) => {
-          if (dokdoLayer) {
-            map.removeLayer(dokdoLayer);
-            dokdoLayer = null;
-          }
-          if (dokdoLabel) {
-            map.removeLayer(dokdoLabel);
-            dokdoLabel = null;
-          }
-          dokdoLayer = window.L.geoJSON(geojson, {
-            style: DOKDO_FILL,
-            interactive: false,
-            pane: "overlayPane",
-          }).addTo(map);
-          dokdoLabel = window.L.marker(DOKDO_LABEL_LATLNG, {
-            interactive: false,
-            keyboard: false,
-            pane: "tooltipPane",
-            icon: window.L.divIcon({
-              className: "korea-dokdo-label",
-              html: "<span>독도</span>",
-              iconSize: [36, 16],
-              iconAnchor: [-6, 8],
-            }),
-          }).addTo(map);
-          return dokdoLayer;
-        })
         .catch((err) => {
           console.warn("TripEnterSigMap: Dokdo layer skipped:", err);
           return null;
         });
+    };
+
+    const mountDokdo = (rawDokdo, sourceGeojson) => {
+      if (!rawDokdo) return null;
+      if (dokdoLayer) {
+        map.removeLayer(dokdoLayer);
+        dokdoLayer = null;
+      }
+      if (dokdoLabel) {
+        map.removeLayer(dokdoLabel);
+        dokdoLabel = null;
+      }
+      const prepared = prepareDokdoGeojson(rawDokdo, sourceGeojson);
+      dokdoLayer = window.L.geoJSON(prepared, {
+        style: DOKDO_FILL,
+        interactive: true,
+        pane: "overlayPane",
+      }).addTo(map);
+      bindDokdoHandlers();
+      return dokdoLayer;
     };
 
     const ready = Promise.all([
@@ -912,10 +1641,13 @@
         return response.json();
       }),
       loadNkOutline(),
-      loadDokdo(),
+      fetchDokdo(),
     ])
-      .then(async ([geojson]) => {
-        collection = geojson;
+      .then(async ([geojson, , dokdoRaw]) => {
+        collection = shiftEastIslands(
+          mergeMetroRegions(mergeCityDistricts(mergeSeoulBanks(geojson)))
+        );
+        mountDokdo(dokdoRaw, geojson);
         districts = buildDistricts(collection);
 
         let items = [];
